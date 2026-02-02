@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 
 import TradeListScreen from '../screens/TradeListScreen';
@@ -40,7 +40,7 @@ export const RootNavigator = () => {
         <Stack.Screen
           name="CreateEditTrade"
           component={CreateEditTradeScreen}
-          options={({ route }) => ({
+          options={({ route }: { route: any }) => ({
             title: route.params?.tradeId ? 'Edit Trade' : 'New Trade',
             presentation: 'modal',
           })}

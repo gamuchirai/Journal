@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { Trade, UserPreferences, TradeOutcomes } from '../types';
 import { FOREX_PAIRS, TIMEFRAMES, DEFAULT_CONTEXTS } from '../constants';
 
-let db: SQLite.Database;
+let db: SQLite.SQLiteDatabase;
 
 export const initializeDatabase = async () => {
   db = await SQLite.openDatabaseAsync('tradeflow.db');
@@ -177,7 +177,7 @@ export const getAllTrades = async (status?: string): Promise<Trade[]> => {
 
   const rows = await db.getAllAsync(query, status ? [status] : []);
 
-  return rows.map(row => rowToTrade(row as any));
+  return rows.map((row: any) => rowToTrade(row as any));
 };
 
 export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
@@ -186,16 +186,16 @@ export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
     [market]
   );
 
-  return rows.map(row => rowToTrade(row as any));
+  return rows.map((row: any) => rowToTrade(row as any));
 };
 
 export const getRecentTrades = async (limit: number = 10): Promise<Trade[]> => {
   const rows = await db.getAllAsync(
     'SELECT * FROM trades WHERE status IN (?, ?, ?) ORDER BY date DESC LIMIT ?',
-    ['active', 'closed', 'reviewed', limit]
+    ['active', 'closed', 'reviewed', limit as any]
   );
 
-  return rows.map(row => rowToTrade(row as any));
+  return rows.map((row: any) => rowToTrade(row as any));
 };
 
 export const deleteTrade = async (id: string) => {

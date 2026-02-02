@@ -1,7 +1,8 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 
-const IMAGE_CACHE_DIR = FileSystem.documentDirectory + 'trade_images/';
+// Use a simple string path for trade images
+const IMAGE_CACHE_DIR = 'trade_images/';
 const THUMBNAIL_WIDTH = 300;
 const THUMBNAIL_HEIGHT = 300;
 
