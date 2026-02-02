@@ -1,16 +1,76 @@
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { Trade, UserPreferences, TradeOutcomes } from '../types';
 import { FOREX_PAIRS, TIMEFRAMES, DEFAULT_CONTEXTS } from '../constants';
 
-let db: SQLite.SQLiteDatabase;
+const isWeb = Platform.OS === 'web';
+const WEB_STORE_KEY = 'tradeflow_web_store';
+
+type WebStore = {
+  trades: Trade[];
+  preferences: UserPreferences;
+};
+
+let webStoreMemory: WebStore | null = null;
+let db: SQLiteDatabase | null = null;
+
+const getDefaultPreferences = (): UserPreferences => ({
+  defaultTimeframe: TIMEFRAMES[4],
+  recentMarkets: FOREX_PAIRS.slice(0, 5),
+  recentContexts: DEFAULT_CONTEXTS.slice(0, 5),
+});
+
+const getWebStore = (): WebStore => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    if (!webStoreMemory) {
+      webStoreMemory = { trades: [], preferences: getDefaultPreferences() };
+    }
+    return webStoreMemory;
+  }
+
+  const raw = window.localStorage.getItem(WEB_STORE_KEY);
+  if (!raw) {
+    const initial = { trades: [], preferences: getDefaultPreferences() };
+    window.localStorage.setItem(WEB_STORE_KEY, JSON.stringify(initial));
+    return initial;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as WebStore;
+    return {
+      trades: parsed.trades || [],
+      preferences: parsed.preferences || getDefaultPreferences(),
+    };
+  } catch {
+    const initial = { trades: [], preferences: getDefaultPreferences() };
+    window.localStorage.setItem(WEB_STORE_KEY, JSON.stringify(initial));
+    return initial;
+  }
+};
+
+const saveWebStore = (store: WebStore) => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    webStoreMemory = store;
+    return;
+  }
+
+  window.localStorage.setItem(WEB_STORE_KEY, JSON.stringify(store));
+};
 
 export const initializeDatabase = async () => {
+  if (isWeb) {
+    getWebStore();
+    return;
+  }
+
+  const SQLite = await import('expo-sqlite');
   db = await SQLite.openDatabaseAsync('tradeflow.db');
   await createTables();
   await seedDefaultData();
 };
 
 const createTables = async () => {
+  if (!db) return;
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS trades (
       id TEXT PRIMARY KEY,
@@ -54,6 +114,7 @@ const createTables = async () => {
 };
 
 const seedDefaultData = async () => {
+  if (!db) return;
   try {
     const result = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM user_preferences'
@@ -79,6 +140,21 @@ const seedDefaultData = async () => {
 export const createTrade = async (trade: Trade) => {
   const now = Date.now();
   const id = trade.id || `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
+
+  if (isWeb) {
+    const store = getWebStore();
+    const newTrade: Trade = {
+      ...trade,
+      id,
+    };
+    store.trades = [newTrade, ...store.trades.filter(t => t.id !== id)];
+    saveWebStore(store);
+    await updateRecentMarket(trade.market);
+    await updateRecentContext(trade.context);
+    return id;
+  }
+
+  if (!db) throw new Error('Database not initialized');
 
   await db.runAsync(
     `INSERT INTO trades (
@@ -118,6 +194,17 @@ export const createTrade = async (trade: Trade) => {
 
 export const updateTrade = async (trade: Trade) => {
   const now = Date.now();
+
+  if (isWeb) {
+    const store = getWebStore();
+    store.trades = store.trades.map(t => (t.id === trade.id ? { ...trade } : t));
+    saveWebStore(store);
+    await updateRecentMarket(trade.market);
+    await updateRecentContext(trade.context);
+    return;
+  }
+
+  if (!db) throw new Error('Database not initialized');
 
   await db.runAsync(
     `UPDATE trades SET
@@ -160,6 +247,13 @@ export const updateTrade = async (trade: Trade) => {
 };
 
 export const getTrade = async (id: string): Promise<Trade | null> => {
+  if (isWeb) {
+    const store = getWebStore();
+    return store.trades.find(t => t.id === id) || null;
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const row = await db.getFirstAsync(
     'SELECT * FROM trades WHERE id = ?',
     [id]
@@ -171,6 +265,14 @@ export const getTrade = async (id: string): Promise<Trade | null> => {
 };
 
 export const getAllTrades = async (status?: string): Promise<Trade[]> => {
+  if (isWeb) {
+    const store = getWebStore();
+    const trades = status ? store.trades.filter(t => t.status === status) : store.trades;
+    return [...trades].sort((a, b) => b.date - a.date);
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const query = status
     ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
     : 'SELECT * FROM trades ORDER BY date DESC';
@@ -181,6 +283,15 @@ export const getAllTrades = async (status?: string): Promise<Trade[]> => {
 };
 
 export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
+  if (isWeb) {
+    const store = getWebStore();
+    return store.trades
+      .filter(t => t.market === market)
+      .sort((a, b) => b.date - a.date);
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const rows = await db.getAllAsync(
     'SELECT * FROM trades WHERE market = ? ORDER BY date DESC',
     [market]
@@ -190,6 +301,16 @@ export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
 };
 
 export const getRecentTrades = async (limit: number = 10): Promise<Trade[]> => {
+  if (isWeb) {
+    const store = getWebStore();
+    return store.trades
+      .filter(t => ['active', 'closed', 'reviewed'].includes(t.status))
+      .sort((a, b) => b.date - a.date)
+      .slice(0, limit);
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const rows = await db.getAllAsync(
     'SELECT * FROM trades WHERE status IN (?, ?, ?) ORDER BY date DESC LIMIT ?',
     ['active', 'closed', 'reviewed', limit as any]
@@ -199,20 +320,31 @@ export const getRecentTrades = async (limit: number = 10): Promise<Trade[]> => {
 };
 
 export const deleteTrade = async (id: string) => {
+  if (isWeb) {
+    const store = getWebStore();
+    store.trades = store.trades.filter(t => t.id !== id);
+    saveWebStore(store);
+    return;
+  }
+
+  if (!db) throw new Error('Database not initialized');
   await db.runAsync('DELETE FROM trades WHERE id = ?', [id]);
 };
 
 export const getUserPreferences = async (): Promise<UserPreferences> => {
+  if (isWeb) {
+    const store = getWebStore();
+    return store.preferences || getDefaultPreferences();
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const row = await db.getFirstAsync(
     'SELECT * FROM user_preferences LIMIT 1'
   );
 
   if (!row) {
-    return {
-      defaultTimeframe: TIMEFRAMES[4],
-      recentMarkets: FOREX_PAIRS.slice(0, 5),
-      recentContexts: DEFAULT_CONTEXTS.slice(0, 5),
-    };
+    return getDefaultPreferences();
   }
 
   return {
@@ -228,6 +360,15 @@ const updateRecentMarket = async (market: string) => {
   markets.unshift(market);
   if (markets.length > 5) markets.pop();
 
+  if (isWeb) {
+    const store = getWebStore();
+    store.preferences = { ...prefs, recentMarkets: markets };
+    saveWebStore(store);
+    return;
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   await db.runAsync(
     'UPDATE user_preferences SET recentMarkets = ?, updatedAt = ?',
     [JSON.stringify(markets), Date.now()]
@@ -240,6 +381,15 @@ const updateRecentContext = async (context: string) => {
   contexts.unshift(context);
   if (contexts.length > 5) contexts.pop();
 
+  if (isWeb) {
+    const store = getWebStore();
+    store.preferences = { ...prefs, recentContexts: contexts };
+    saveWebStore(store);
+    return;
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   await db.runAsync(
     'UPDATE user_preferences SET recentContexts = ?, updatedAt = ?',
     [JSON.stringify(contexts), Date.now()]
@@ -248,6 +398,17 @@ const updateRecentContext = async (context: string) => {
 
 // Analytics queries
 export const getWinRate = async (): Promise<number> => {
+  if (isWeb) {
+    const store = getWebStore();
+    const closedTrades = store.trades.filter(t => ['closed', 'reviewed'].includes(t.status));
+    const withPnl = closedTrades.filter(t => t.pnl && t.pnl.trim() !== '');
+    if (withPnl.length === 0) return 0;
+    const wins = withPnl.filter(t => Number(t.pnl) > 0).length;
+    return (wins / withPnl.length) * 100;
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const result = await db.getFirstAsync(
     `SELECT
       COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' THEN 1 END) as total,
@@ -260,6 +421,27 @@ export const getWinRate = async (): Promise<number> => {
 };
 
 export const getBlockSuccessRates = async () => {
+  if (isWeb) {
+    const store = getWebStore();
+    const closed = store.trades.filter(t => ['closed', 'reviewed'].includes(t.status));
+    const rate = (items: (boolean | null)[]) => {
+      const defined = items.filter(v => v !== null) as boolean[];
+      if (defined.length === 0) return 0;
+      const wins = defined.filter(Boolean).length;
+      return Math.round((wins / defined.length) * 100);
+    };
+
+    return {
+      bias: rate(closed.map(t => t.outcomes.biasPlayedOut ?? null)),
+      narrative: rate(closed.map(t => t.outcomes.narrativePlayedOut ?? null)),
+      context: rate(closed.map(t => t.outcomes.contextHeld ?? null)),
+      entry: rate(closed.map(t => t.outcomes.entryExecuted ?? null)),
+      risk: rate(closed.map(t => t.outcomes.riskManaged ?? null)),
+    };
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
   const result = await db.getFirstAsync(`
     SELECT
       COUNT(CASE WHEN biasPlayedOut = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN biasPlayedOut IS NOT NULL THEN 1 END), 0) as biasRate,

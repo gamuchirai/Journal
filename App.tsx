@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { initializeDatabase } from './src/database';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -32,7 +31,7 @@ export default function App() {
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
       <RootNavigator />
     </>
   );
