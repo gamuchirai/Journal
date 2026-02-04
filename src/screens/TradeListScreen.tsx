@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Trade } from '../types';
 import { COLORS } from '../constants';
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TradeList'>;
 const TradeListScreen = ({ navigation }: Props) => {
   const { trades, loadTrades, loading } = useTradeStore();
   const [filter, setFilter] = useState<string | undefined>(undefined);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadTrades(filter as any);
@@ -132,17 +134,17 @@ const TradeListScreen = ({ navigation }: Props) => {
           data={trades}
           renderItem={renderTradeCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 90 }]}
           showsVerticalScrollIndicator={false}
         />
       )}
 
-      <TouchableOpacity style={styles.fab} onPress={handleAddTrade}>
+      <TouchableOpacity style={[styles.fab, { bottom: 24 + insets.bottom }]} onPress={handleAddTrade}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.analyticsButton}
+        style={[styles.analyticsButton, { bottom: 24 + insets.bottom }]}
         onPress={() => navigation.navigate('Analytics')}
       >
         <Text style={styles.analyticsButtonText}>📊</Text>

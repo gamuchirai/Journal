@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Trade } from '../types';
 import { COLORS } from '../constants';
@@ -22,6 +23,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TradeDetail'>;
 const TradeDetailScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
   const { deleteTrade } = useTradeStore();
+  const insets = useSafeAreaInsets();
   const [trade, setTrade] = useState<Trade | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageModalVisible, setImageModalVisible] = useState(false);
@@ -105,8 +107,11 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header Info */}
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+      showsVerticalScrollIndicator={false}
+    >      {/* Header Info */}
       <View style={styles.headerCard}>
         <View style={styles.headerRow}>
           <Text style={styles.market}>{trade.market}</Text>

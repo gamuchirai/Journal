@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from './src/database';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { COLORS } from './src/constants';
@@ -30,9 +31,8 @@ export default function App() {
   }
 
   return (
-    <>
-
+    <SafeAreaProvider>
       <RootNavigator />
-    </>
+    </SafeAreaProvider>
   );
 }

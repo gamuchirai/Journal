@@ -64,7 +64,10 @@ export const useTradeStore = create<TradeStore>((set) => ({
   saveTrade: async (trade: Trade) => {
     set({ loading: true, error: null });
     try {
-      if (trade.id) {
+      // Check if trade exists in database
+      const existingTrade = trade.id ? await db.getTrade(trade.id) : null;
+      
+      if (existingTrade) {
         await db.updateTrade(trade);
       } else {
         await db.createTrade(trade);

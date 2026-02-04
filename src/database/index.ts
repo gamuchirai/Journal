@@ -13,6 +13,8 @@ type WebStore = {
 
 let webStoreMemory: WebStore | null = null;
 let db: SQLiteDatabase | null = null;
+let dbInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
 const getDefaultPreferences = (): UserPreferences => ({
   defaultTimeframe: TIMEFRAMES[4],
@@ -58,15 +60,52 @@ const saveWebStore = (store: WebStore) => {
 };
 
 export const initializeDatabase = async () => {
+  // If already initialized or initializing, wait for it
+  if (dbInitialized) return;
+  if (initializationPromise) return initializationPromise;
+
   if (isWeb) {
     getWebStore();
+    dbInitialized = true;
     return;
   }
 
-  const SQLite = await import('expo-sqlite');
-  db = await SQLite.openDatabaseAsync('tradeflow.db');
-  await createTables();
-  await seedDefaultData();
+  initializationPromise = (async () => {
+    try {
+      const SQLite = await import('expo-sqlite');
+      db = await SQLite.openDatabaseAsync('tradeflow.db');
+      
+      if (!db) {
+        throw new Error('Failed to open database');
+      }
+
+      await createTables();
+      await seedDefaultData();
+      dbInitialized = true;
+      console.log('Database initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+      db = null;
+      dbInitialized = false;
+      throw error;
+    } finally {
+      initializationPromise = null;
+    }
+  })();
+
+  return initializationPromise;
+};
+
+const ensureDbReady = async () => {
+  if (isWeb) return;
+  
+  if (!dbInitialized) {
+    await initializeDatabase();
+  }
+  
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
 };
 
 const createTables = async () => {
@@ -134,6 +173,21 @@ const seedDefaultData = async () => {
     }
   } catch (error) {
     console.error('Error seeding preferences:', error);
+    // Try to insert anyway if the error was from querying
+    try {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO user_preferences (id, defaultTimeframe, recentMarkets, recentContexts, updatedAt)
+         VALUES (1, ?, ?, ?, ?)`,
+        [
+          TIMEFRAMES[4],
+          JSON.stringify(FOREX_PAIRS.slice(0, 5)),
+          JSON.stringify(DEFAULT_CONTEXTS.slice(0, 5)),
+          Date.now(),
+        ]
+      );
+    } catch (insertError) {
+      console.error('Error inserting default preferences:', insertError);
+    }
   }
 };
 
@@ -154,7 +208,7 @@ export const createTrade = async (trade: Trade) => {
     return id;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
   await db.runAsync(
     `INSERT INTO trades (
@@ -204,7 +258,7 @@ export const updateTrade = async (trade: Trade) => {
     return;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
   await db.runAsync(
     `UPDATE trades SET
@@ -252,16 +306,21 @@ export const getTrade = async (id: string): Promise<Trade | null> => {
     return store.trades.find(t => t.id === id) || null;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const row = await db.getFirstAsync(
-    'SELECT * FROM trades WHERE id = ?',
-    [id]
-  );
+  try {
+    const row = await db.getFirstAsync(
+      'SELECT * FROM trades WHERE id = ?',
+      [id]
+    );
 
-  if (!row) return null;
+    if (!row) return null;
 
-  return rowToTrade(row as any);
+    return rowToTrade(row as any);
+  } catch (error) {
+    console.error('Error getting trade:', error);
+    return null;
+  }
 };
 
 export const getAllTrades = async (status?: string): Promise<Trade[]> => {
@@ -271,7 +330,7 @@ export const getAllTrades = async (status?: string): Promise<Trade[]> => {
     return [...trades].sort((a, b) => b.date - a.date);
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
   const query = status
     ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
@@ -327,7 +386,7 @@ export const deleteTrade = async (id: string) => {
     return;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
   await db.runAsync('DELETE FROM trades WHERE id = ?', [id]);
 };
 
@@ -337,21 +396,26 @@ export const getUserPreferences = async (): Promise<UserPreferences> => {
     return store.preferences || getDefaultPreferences();
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const row = await db.getFirstAsync(
-    'SELECT * FROM user_preferences LIMIT 1'
-  );
+  try {
+    const row = await db.getFirstAsync(
+      'SELECT * FROM user_preferences LIMIT 1'
+    );
 
-  if (!row) {
+    if (!row) {
+      return getDefaultPreferences();
+    }
+
+    return {
+      defaultTimeframe: (row as any).defaultTimeframe,
+      recentMarkets: JSON.parse((row as any).recentMarkets),
+      recentContexts: JSON.parse((row as any).recentContexts),
+    };
+  } catch (error) {
+    console.error('Error getting user preferences:', error);
     return getDefaultPreferences();
   }
-
-  return {
-    defaultTimeframe: (row as any).defaultTimeframe,
-    recentMarkets: JSON.parse((row as any).recentMarkets),
-    recentContexts: JSON.parse((row as any).recentContexts),
-  };
 };
 
 const updateRecentMarket = async (market: string) => {

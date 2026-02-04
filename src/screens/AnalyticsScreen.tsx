@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { COLORS } from '../constants';
@@ -26,6 +27,7 @@ interface Analytics {
 }
 
 const AnalyticsScreen = ({ navigation }: Props) => {
+  const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -113,7 +115,7 @@ const AnalyticsScreen = ({ navigation }: Props) => {
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
     >
       {/* Overview Section */}
       <View style={styles.section}>

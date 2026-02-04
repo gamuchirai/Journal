@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +41,7 @@ interface FormData {
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
   const { saveTrade, loading } = useTradeStore();
+  const insets = useSafeAreaInsets();
   const [trade, setTrade] = useState<Trade | null>(null);
   const [screenshotUri, setScreenshotUri] = useState<string | null>(null);
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
@@ -101,6 +103,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         }
       } catch (error) {
         console.error('Error loading initial data:', error);
+        Alert.alert('Error', 'Failed to load preferences. Using defaults.');
+        // Set fallback defaults
+        setPreferences({
+          defaultTimeframe: TIMEFRAMES[4],
+          recentMarkets: FOREX_PAIRS.slice(0, 5),
+          recentContexts: DEFAULT_CONTEXTS.slice(0, 5),
+        });
       } finally {
         setLoadingTrade(false);
       }
@@ -190,6 +199,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     >
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -1,16 +1,24 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Use a simple string path for trade images
-const IMAGE_CACHE_DIR = 'trade_images/';
 const THUMBNAIL_WIDTH = 300;
 const THUMBNAIL_HEIGHT = 300;
 
+// Get image cache directory path
+const getImageCacheDir = () => {
+  if (!FileSystem.cacheDirectory) {
+    throw new Error('Cache directory not available');
+  }
+  return `${FileSystem.cacheDirectory}trade_images/`;
+};
+
 // Ensure cache directory exists
 export const ensureImageCacheDir = async () => {
-  const dirInfo = await FileSystem.getInfoAsync(IMAGE_CACHE_DIR);
+  const dirPath = getImageCacheDir();
+  const dirInfo = await FileSystem.getInfoAsync(dirPath);
   if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(IMAGE_CACHE_DIR, { intermediates: true });
+    await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
   }
 };
 
@@ -34,7 +42,7 @@ export const compressImage = async (imageUri: string): Promise<string> => {
       }
     );
 
-    const destinationUri = IMAGE_CACHE_DIR + filename + '.jpg';
+    const destinationUri = `${getImageCacheDir()}${filename}.jpg`;
     await FileSystem.copyAsync({
       from: result.uri,
       to: destinationUri,
@@ -69,7 +77,7 @@ export const createThumbnail = async (imageUri: string): Promise<string> => {
       }
     );
 
-    const destinationUri = IMAGE_CACHE_DIR + filename + '.jpg';
+    const destinationUri = `${getImageCacheDir()}${filename}.jpg`;
     await FileSystem.copyAsync({
       from: result.uri,
       to: destinationUri,
