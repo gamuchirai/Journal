@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -145,7 +146,27 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   };
 
   const onSubmit = async (data: FormData) => {
+    console.log('=== SAVE TRADE CLICKED ===');
+    console.log('Form data:', JSON.stringify(data, null, 2));
+    
     try {
+      // Calculate Risk:Reward ratio
+      let calculatedRR = '';
+      if (data.entry && data.stop && data.target) {
+        const entry = parseFloat(data.entry);
+        const stop = parseFloat(data.stop);
+        const target = parseFloat(data.target);
+        
+        if (!isNaN(entry) && !isNaN(stop) && !isNaN(target)) {
+          const risk = Math.abs(entry - stop);
+          const reward = Math.abs(target - entry);
+          if (risk > 0) {
+            const rrRatio = reward / risk;
+            calculatedRR = `1:${rrRatio.toFixed(2)}`;
+          }
+        }
+      }
+      
       const newTrade: Trade = {
         id: trade?.id || `trade_${Date.now()}`,
         date: trade?.date || Date.now(),
@@ -158,7 +179,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         risk: {
           stop: data.stop,
           target: data.target,
-          riskReward: data.riskReward,
+          riskReward: calculatedRR,
         },
         status: trade?.status || 'draft',
         outcomes: trade?.outcomes || {
@@ -177,9 +198,14 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         },
       };
 
+      console.log('New trade object:', JSON.stringify(newTrade, null, 2));
+      console.log('Calling saveTrade...');
       await saveTrade(newTrade);
+      console.log('saveTrade completed successfully');
+      console.log('Navigating back...');
       navigation.goBack();
     } catch (error) {
+      console.error('Error in onSubmit:', error);
       Alert.alert('Error', 'Failed to save trade');
     }
   };
@@ -313,16 +339,15 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             control={control}
             name="narrative"
             render={({ field: { value, onChange } }) => (
-              <TouchableOpacity
+              <TextInput
                 style={styles.input}
-                onPress={() => {
-                  // Placeholder for text input
-                }}
-              >
-                <Text style={{ color: value ? COLORS.text : COLORS.textLight }}>
-                  {value || 'Enter narrative...'}
-                </Text>
-              </TouchableOpacity>
+                placeholder="Enter narrative..."
+                placeholderTextColor={COLORS.textLight}
+                value={value}
+                onChangeText={onChange}
+                multiline
+                numberOfLines={3}
+              />
             )}
           />
         </View>
@@ -371,16 +396,14 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             control={control}
             name="entry"
             render={({ field: { value, onChange } }) => (
-              <TouchableOpacity
+              <TextInput
                 style={styles.input}
-                onPress={() => {
-                  // Placeholder for text input
-                }}
-              >
-                <Text style={{ color: value ? COLORS.text : COLORS.textLight }}>
-                  {value || 'Enter entry...'}
-                </Text>
-              </TouchableOpacity>
+                placeholder="Enter entry price..."
+                placeholderTextColor={COLORS.textLight}
+                value={value}
+                onChangeText={onChange}
+                keyboardType="decimal-pad"
+              />
             )}
           />
         </View>
@@ -392,33 +415,28 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             control={control}
             name="stop"
             render={({ field: { value, onChange } }) => (
-              <TouchableOpacity style={styles.input}>
-                <Text style={{ color: value ? COLORS.text : COLORS.textLight }}>
-                  {value || 'Stop Loss...'}
-                </Text>
-              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Stop Loss..."
+                placeholderTextColor={COLORS.textLight}
+                value={value}
+                onChangeText={onChange}
+                keyboardType="decimal-pad"
+              />
             )}
           />
           <Controller
             control={control}
             name="target"
             render={({ field: { value, onChange } }) => (
-              <TouchableOpacity style={[styles.input, styles.marginTop]}>
-                <Text style={{ color: value ? COLORS.text : COLORS.textLight }}>
-                  {value || 'Target...'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-          <Controller
-            control={control}
-            name="riskReward"
-            render={({ field: { value, onChange } }) => (
-              <TouchableOpacity style={[styles.input, styles.marginTop]}>
-                <Text style={{ color: value ? COLORS.text : COLORS.textLight }}>
-                  {value || 'R:R Ratio...'}
-                </Text>
-              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, styles.marginTop]}
+                placeholder="Target..."
+                placeholderTextColor={COLORS.textLight}
+                value={value}
+                onChangeText={onChange}
+                keyboardType="decimal-pad"
+              />
             )}
           />
         </View>
@@ -534,6 +552,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     marginTop: 4,
+    fontSize: 14,
+    color: COLORS.text,
   },
   marginTop: {
     marginTop: 8,

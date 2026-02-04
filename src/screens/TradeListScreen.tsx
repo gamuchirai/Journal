@@ -55,7 +55,9 @@ const TradeListScreen = ({ navigation }: Props) => {
     return value > 0 ? COLORS.success : value < 0 ? COLORS.error : COLORS.textLight;
   };
 
-  const renderTradeCard = ({ item }: { item: Trade }) => (
+  const renderTradeCard = ({ item }: { item: Trade }) => {
+    console.log('Rendering trade card:', item.id, 'Market:', item.market);
+    return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => handleSelectTrade(item)}
@@ -69,14 +71,14 @@ const TradeListScreen = ({ navigation }: Props) => {
       )}
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={styles.market}>{item.market}</Text>
+          <Text style={styles.market}>{String(item.market || '')}</Text>
           <Text style={[styles.pnl, { color: getPnLColor(item.pnl) }]}>
-            {item.pnl || '-'}
+            {String(item.pnl || '-')}
           </Text>
         </View>
         <View style={styles.cardDetails}>
           <Text style={styles.date}>{formatDate(item.date)}</Text>
-          <Text style={styles.timeframe}>{item.timeframe}</Text>
+          <Text style={styles.timeframe}>{String(item.timeframe || '')}</Text>
           <View
             style={[
               styles.statusBadge,
@@ -90,12 +92,12 @@ const TradeListScreen = ({ navigation }: Props) => {
               },
             ]}
           >
-            <Text style={styles.statusText}>{item.status}</Text>
+            <Text style={styles.statusText}>{String(item.status || 'draft')}</Text>
           </View>
         </View>
       </View>
     </TouchableOpacity>
-  );
+  );};
 
   return (
     <View style={styles.container}>
@@ -140,14 +142,14 @@ const TradeListScreen = ({ navigation }: Props) => {
       )}
 
       <TouchableOpacity style={[styles.fab, { bottom: 24 + insets.bottom }]} onPress={handleAddTrade}>
-        <Text style={styles.fabText}>+</Text>
+        <Text style={styles.fabText}>{String('+')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.analyticsButton, { bottom: 24 + insets.bottom }]}
         onPress={() => navigation.navigate('Analytics')}
       >
-        <Text style={styles.analyticsButtonText}>📊</Text>
+        <Text style={styles.analyticsButtonText}>{String('📊')}</Text>
       </TouchableOpacity>
     </View>
   );

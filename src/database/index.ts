@@ -72,15 +72,23 @@ export const initializeDatabase = async () => {
 
   initializationPromise = (async () => {
     try {
+      console.log('Starting database initialization...');
       const SQLite = await import('expo-sqlite');
+      console.log('SQLite module loaded');
+      
       db = await SQLite.openDatabaseAsync('tradeflow.db');
+      console.log('Database opened');
       
       if (!db) {
         throw new Error('Failed to open database');
       }
 
       await createTables();
+      console.log('Tables created');
+      
       await seedDefaultData();
+      console.log('Default data seeded');
+      
       dbInitialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
@@ -110,6 +118,9 @@ const ensureDbReady = async () => {
 
 const createTables = async () => {
   if (!db) return;
+  
+  console.log('Creating/updating database tables...');
+  
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS trades (
       id TEXT PRIMARY KEY,
@@ -120,9 +131,9 @@ const createTables = async () => {
       narrative TEXT NOT NULL,
       context TEXT NOT NULL,
       entry TEXT NOT NULL,
-      stop TEXT NOT NULL,
-      target TEXT NOT NULL,
-      riskReward TEXT NOT NULL,
+      stop TEXT,
+      target TEXT,
+      riskReward TEXT,
       status TEXT NOT NULL DEFAULT 'draft',
       biasPlayedOut INTEGER,
       narrativePlayedOut INTEGER,
@@ -192,10 +203,13 @@ const seedDefaultData = async () => {
 };
 
 export const createTrade = async (trade: Trade) => {
+  console.log('=== DB: createTrade called ===');
   const now = Date.now();
   const id = trade.id || `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log('Trade ID:', id);
 
   if (isWeb) {
+    console.log('Using web storage');
     const store = getWebStore();
     const newTrade: Trade = {
       ...trade,
@@ -205,12 +219,15 @@ export const createTrade = async (trade: Trade) => {
     saveWebStore(store);
     await updateRecentMarket(trade.market);
     await updateRecentContext(trade.context);
+    console.log('=== DB: createTrade completed (web) ===');
     return id;
   }
 
+  console.log('Using SQLite database');
   await ensureDbReady();
+  console.log('Database ready, inserting trade...');
 
-  await db.runAsync(
+  await db!.runAsync(
     `INSERT INTO trades (
       id, date, market, timeframe, bias, narrative, context, entry,
       stop, target, riskReward, status, screenshotUri, thumbnailUri,
@@ -239,28 +256,37 @@ export const createTrade = async (trade: Trade) => {
     ]
   );
 
+  console.log('Trade inserted into database');
+  
   // Update recent markets
   await updateRecentMarket(trade.market);
   await updateRecentContext(trade.context);
 
+  console.log('=== DB: createTrade completed ===');
   return id;
 };
 
 export const updateTrade = async (trade: Trade) => {
+  console.log('=== DB: updateTrade called ===');
+  console.log('Trade ID:', trade.id);
   const now = Date.now();
 
   if (isWeb) {
+    console.log('Using web storage');
     const store = getWebStore();
     store.trades = store.trades.map(t => (t.id === trade.id ? { ...trade } : t));
     saveWebStore(store);
     await updateRecentMarket(trade.market);
     await updateRecentContext(trade.context);
+    console.log('=== DB: updateTrade completed (web) ===');
     return;
   }
 
+  console.log('Using SQLite database');
   await ensureDbReady();
+  console.log('Database ready, updating trade...');
 
-  await db.runAsync(
+  await db!.runAsync(
     `UPDATE trades SET
       date = ?, market = ?, timeframe = ?, bias = ?, narrative = ?,
       context = ?, entry = ?, stop = ?, target = ?, riskReward = ?,
@@ -296,8 +322,10 @@ export const updateTrade = async (trade: Trade) => {
     ]
   );
 
+  console.log('Trade updated in database');
   await updateRecentMarket(trade.market);
   await updateRecentContext(trade.context);
+  console.log('=== DB: updateTrade completed ===');
 };
 
 export const getTrade = async (id: string): Promise<Trade | null> => {
@@ -309,7 +337,7 @@ export const getTrade = async (id: string): Promise<Trade | null> => {
   await ensureDbReady();
 
   try {
-    const row = await db.getFirstAsync(
+    const row = await db!.getFirstAsync(
       'SELECT * FROM trades WHERE id = ?',
       [id]
     );
@@ -336,7 +364,7 @@ export const getAllTrades = async (status?: string): Promise<Trade[]> => {
     ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
     : 'SELECT * FROM trades ORDER BY date DESC';
 
-  const rows = await db.getAllAsync(query, status ? [status] : []);
+  const rows = await db!.getAllAsync(query, status ? [status] : []);
 
   return rows.map((row: any) => rowToTrade(row as any));
 };
@@ -349,9 +377,9 @@ export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
       .sort((a, b) => b.date - a.date);
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const rows = await db.getAllAsync(
+  const rows = await db!.getAllAsync(
     'SELECT * FROM trades WHERE market = ? ORDER BY date DESC',
     [market]
   );
@@ -368,9 +396,9 @@ export const getRecentTrades = async (limit: number = 10): Promise<Trade[]> => {
       .slice(0, limit);
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const rows = await db.getAllAsync(
+  const rows = await db!.getAllAsync(
     'SELECT * FROM trades WHERE status IN (?, ?, ?) ORDER BY date DESC LIMIT ?',
     ['active', 'closed', 'reviewed', limit as any]
   );
@@ -387,7 +415,7 @@ export const deleteTrade = async (id: string) => {
   }
 
   await ensureDbReady();
-  await db.runAsync('DELETE FROM trades WHERE id = ?', [id]);
+  await db!.runAsync('DELETE FROM trades WHERE id = ?', [id]);
 };
 
 export const getUserPreferences = async (): Promise<UserPreferences> => {
@@ -399,7 +427,7 @@ export const getUserPreferences = async (): Promise<UserPreferences> => {
   await ensureDbReady();
 
   try {
-    const row = await db.getFirstAsync(
+    const row = await db!.getFirstAsync(
       'SELECT * FROM user_preferences LIMIT 1'
     );
 
@@ -431,9 +459,9 @@ const updateRecentMarket = async (market: string) => {
     return;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  await db.runAsync(
+  await db!.runAsync(
     'UPDATE user_preferences SET recentMarkets = ?, updatedAt = ?',
     [JSON.stringify(markets), Date.now()]
   );
@@ -452,9 +480,9 @@ const updateRecentContext = async (context: string) => {
     return;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  await db.runAsync(
+  await db!.runAsync(
     'UPDATE user_preferences SET recentContexts = ?, updatedAt = ?',
     [JSON.stringify(contexts), Date.now()]
   );
@@ -471,9 +499,9 @@ export const getWinRate = async (): Promise<number> => {
     return (wins / withPnl.length) * 100;
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const result = await db.getFirstAsync(
+  const result = await db!.getFirstAsync(
     `SELECT
       COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' THEN 1 END) as total,
       COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' AND CAST(pnl AS REAL) > 0 THEN 1 END) as wins
@@ -504,9 +532,9 @@ export const getBlockSuccessRates = async () => {
     };
   }
 
-  if (!db) throw new Error('Database not initialized');
+  await ensureDbReady();
 
-  const result = await db.getFirstAsync(`
+  const result = await db!.getFirstAsync(`
     SELECT
       COUNT(CASE WHEN biasPlayedOut = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN biasPlayedOut IS NOT NULL THEN 1 END), 0) as biasRate,
       COUNT(CASE WHEN narrativePlayedOut = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN narrativePlayedOut IS NOT NULL THEN 1 END), 0) as narrativeRate,
@@ -536,9 +564,9 @@ const rowToTrade = (row: any): Trade => {
     context: row.context,
     entry: row.entry,
     risk: {
-      stop: row.stop,
-      target: row.target,
-      riskReward: row.riskReward,
+      stop: row.stop || '',
+      target: row.target || '',
+      riskReward: row.riskReward || '',
     },
     status: row.status,
     outcomes: {
@@ -548,12 +576,12 @@ const rowToTrade = (row: any): Trade => {
       entryExecuted: row.entryExecuted === null ? null : row.entryExecuted === 1,
       riskManaged: row.riskManaged === null ? null : row.riskManaged === 1,
     },
-    screenshotUri: row.screenshotUri,
-    thumbnailUri: row.thumbnailUri,
-    pnl: row.pnl,
+    screenshotUri: row.screenshotUri || null,
+    thumbnailUri: row.thumbnailUri || null,
+    pnl: row.pnl || null,
     notes: {
-      whatWentRight: row.whatWentRight,
-      whatWentWrong: row.whatWentWrong,
+      whatWentRight: row.whatWentRight || null,
+      whatWentWrong: row.whatWentWrong || null,
     },
   };
 };

@@ -62,25 +62,41 @@ export const useTradeStore = create<TradeStore>((set) => ({
   },
 
   saveTrade: async (trade: Trade) => {
+    console.log('=== STORE: saveTrade called ===');
+    console.log('Trade ID:', trade.id);
+    
     set({ loading: true, error: null });
     try {
       // Check if trade exists in database
+      console.log('Checking if trade exists...');
       const existingTrade = trade.id ? await db.getTrade(trade.id) : null;
+      console.log('Existing trade:', existingTrade ? 'Found' : 'Not found');
       
       if (existingTrade) {
+        console.log('Updating existing trade...');
         await db.updateTrade(trade);
+        console.log('Trade updated successfully');
       } else {
+        console.log('Creating new trade...');
         await db.createTrade(trade);
+        console.log('Trade created successfully');
       }
+      
       set({ selectedTrade: trade, loading: false });
+      
       // Reload all trades
+      console.log('Reloading all trades...');
       const updatedTrades = await db.getAllTrades();
+      console.log('Loaded trades count:', updatedTrades.length);
       set({ trades: updatedTrades });
+      console.log('=== STORE: saveTrade completed ===');
     } catch (error) {
+      console.error('=== STORE: saveTrade error ===', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to save trade',
         loading: false,
       });
+      throw error;
     }
   },
 
