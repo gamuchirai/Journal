@@ -231,6 +231,14 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         timeframe: data.entryTimeframe,
         playedOut: data.entryPlayedOut,
       };
+
+      const currentStatus = trade?.status || 'draft';
+      const hasPlayedOutDecision =
+        data.biasPlayedOut !== null ||
+        data.narrativePlayedOut !== null ||
+        data.entryPlayedOut !== null;
+      const nextStatus =
+        currentStatus === 'draft' && hasPlayedOutDecision ? 'closed' : currentStatus;
       
       const newTrade: Trade = {
         id: trade?.id || `trade_${Date.now()}`,
@@ -245,13 +253,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           target: data.target,
           riskReward: calculatedRR || data.riskReward,
         },
-        status: trade?.status || 'draft',
-        outcomes: trade?.outcomes || {
+        status: nextStatus,
+        outcomes: {
           biasPlayedOut: data.biasPlayedOut,
           narrativePlayedOut: data.narrativePlayedOut,
-          contextHeld: null,
+          contextHeld: trade?.outcomes?.contextHeld ?? null,
           entryExecuted: data.entryPlayedOut,
-          riskManaged: null,
+          riskManaged: trade?.outcomes?.riskManaged ?? null,
         },
         screenshotUri,
         thumbnailUri,

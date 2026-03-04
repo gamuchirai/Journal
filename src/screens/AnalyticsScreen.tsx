@@ -46,9 +46,6 @@ const AnalyticsScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       const trades = await db.getAllTrades();
-      const completedTrades = trades.filter(
-        (t) => t.status === 'closed' || t.status === 'reviewed'
-      );
       const winRate = await db.getWinRate();
       const blockRates = await db.getBlockSuccessRates();
 

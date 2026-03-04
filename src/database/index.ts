@@ -77,15 +77,13 @@ export const initializeDatabase = async () => {
       console.log('SQLite module loaded');
 
       const sqliteAny = SQLiteModule as any;
-      const sqliteApi = sqliteAny.default ?? sqliteAny;
+      const openDatabaseAsync = sqliteAny.openDatabaseAsync ?? sqliteAny.default?.openDatabaseAsync;
 
-      if (typeof sqliteApi.openDatabaseAsync === 'function') {
-        db = await sqliteApi.openDatabaseAsync('tradeflow.db');
-      } else if (typeof sqliteApi.openDatabaseSync === 'function') {
-        db = sqliteApi.openDatabaseSync('tradeflow.db');
-      } else {
-        throw new Error('expo-sqlite does not expose openDatabaseAsync/openDatabaseSync');
+      if (typeof openDatabaseAsync !== 'function') {
+        throw new Error('expo-sqlite does not expose openDatabaseAsync');
       }
+
+      db = await openDatabaseAsync('tradeflow.db');
 
       console.log('Database opened');
       
@@ -184,12 +182,10 @@ const seedDefaultData = async () => {
       await db.runAsync(
         `INSERT INTO user_preferences (defaultTimeframe, recentMarkets, recentContexts, updatedAt)
          VALUES (?, ?, ?, ?)`,
-        [
-          TIMEFRAMES[4], // 1h default
-          JSON.stringify(FOREX_PAIRS.slice(0, 5)),
-          JSON.stringify(DEFAULT_CONTEXTS.slice(0, 5)),
-          Date.now(),
-        ]
+        TIMEFRAMES[4],
+        JSON.stringify(FOREX_PAIRS.slice(0, 5)),
+        JSON.stringify(DEFAULT_CONTEXTS.slice(0, 5)),
+        Date.now()
       );
     }
   } catch (error) {
@@ -199,12 +195,10 @@ const seedDefaultData = async () => {
       await db.runAsync(
         `INSERT OR IGNORE INTO user_preferences (id, defaultTimeframe, recentMarkets, recentContexts, updatedAt)
          VALUES (1, ?, ?, ?, ?)`,
-        [
-          TIMEFRAMES[4],
-          JSON.stringify(FOREX_PAIRS.slice(0, 5)),
-          JSON.stringify(DEFAULT_CONTEXTS.slice(0, 5)),
-          Date.now(),
-        ]
+        TIMEFRAMES[4],
+        JSON.stringify(FOREX_PAIRS.slice(0, 5)),
+        JSON.stringify(DEFAULT_CONTEXTS.slice(0, 5)),
+        Date.now()
       );
     } catch (insertError) {
       console.error('Error inserting default preferences:', insertError);
@@ -245,30 +239,34 @@ export const createTrade = async (trade: Trade) => {
   await db!.runAsync(
     `INSERT INTO trades (
       id, date, market, timeframe, bias, narrative, context, entry,
-      stop, target, riskReward, status, screenshotUri, thumbnailUri,
+      stop, target, riskReward, status, biasPlayedOut, narrativePlayedOut,
+      contextHeld, entryExecuted, riskManaged, screenshotUri, thumbnailUri,
       pnl, whatWentRight, whatWentWrong, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      trade.date,
-      trade.market,
-      trade.timeframe,
-      biasJson,
-      narrativeJson,
-      contextStr,
-      entryJson,
-      trade.risk.stop,
-      trade.risk.target,
-      trade.risk.riskReward,
-      trade.status,
-      trade.screenshotUri,
-      trade.thumbnailUri,
-      trade.pnl,
-      trade.notes.whatWentRight,
-      trade.notes.whatWentWrong,
-      now,
-      now,
-    ]
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    trade.date,
+    trade.market,
+    trade.timeframe,
+    biasJson,
+    narrativeJson,
+    contextStr,
+    entryJson,
+    trade.risk.stop,
+    trade.risk.target,
+    trade.risk.riskReward,
+    trade.status,
+    trade.outcomes.biasPlayedOut ? 1 : trade.outcomes.biasPlayedOut === false ? 0 : null,
+    trade.outcomes.narrativePlayedOut ? 1 : trade.outcomes.narrativePlayedOut === false ? 0 : null,
+    trade.outcomes.contextHeld ? 1 : trade.outcomes.contextHeld === false ? 0 : null,
+    trade.outcomes.entryExecuted ? 1 : trade.outcomes.entryExecuted === false ? 0 : null,
+    trade.outcomes.riskManaged ? 1 : trade.outcomes.riskManaged === false ? 0 : null,
+    trade.screenshotUri,
+    trade.thumbnailUri,
+    trade.pnl,
+    trade.notes.whatWentRight,
+    trade.notes.whatWentWrong,
+    now,
+    now
   );
 
   console.log('Trade inserted into database');
@@ -314,31 +312,29 @@ export const updateTrade = async (trade: Trade) => {
       screenshotUri = ?, thumbnailUri = ?, pnl = ?,
       whatWentRight = ?, whatWentWrong = ?, updatedAt = ?
      WHERE id = ?`,
-    [
-      trade.date,
-      trade.market,
-      trade.timeframe,
-      biasJson,
-      narrativeJson,
-      contextStr,
-      entryJson,
-      trade.risk.stop,
-      trade.risk.target,
-      trade.risk.riskReward,
-      trade.status,
-      trade.outcomes.biasPlayedOut ? 1 : trade.outcomes.biasPlayedOut === false ? 0 : null,
-      trade.outcomes.narrativePlayedOut ? 1 : trade.outcomes.narrativePlayedOut === false ? 0 : null,
-      trade.outcomes.contextHeld ? 1 : trade.outcomes.contextHeld === false ? 0 : null,
-      trade.outcomes.entryExecuted ? 1 : trade.outcomes.entryExecuted === false ? 0 : null,
-      trade.outcomes.riskManaged ? 1 : trade.outcomes.riskManaged === false ? 0 : null,
-      trade.screenshotUri,
-      trade.thumbnailUri,
-      trade.pnl,
-      trade.notes.whatWentRight,
-      trade.notes.whatWentWrong,
-      now,
-      trade.id,
-    ]
+    trade.date,
+    trade.market,
+    trade.timeframe,
+    biasJson,
+    narrativeJson,
+    contextStr,
+    entryJson,
+    trade.risk.stop,
+    trade.risk.target,
+    trade.risk.riskReward,
+    trade.status,
+    trade.outcomes.biasPlayedOut ? 1 : trade.outcomes.biasPlayedOut === false ? 0 : null,
+    trade.outcomes.narrativePlayedOut ? 1 : trade.outcomes.narrativePlayedOut === false ? 0 : null,
+    trade.outcomes.contextHeld ? 1 : trade.outcomes.contextHeld === false ? 0 : null,
+    trade.outcomes.entryExecuted ? 1 : trade.outcomes.entryExecuted === false ? 0 : null,
+    trade.outcomes.riskManaged ? 1 : trade.outcomes.riskManaged === false ? 0 : null,
+    trade.screenshotUri,
+    trade.thumbnailUri,
+    trade.pnl,
+    trade.notes.whatWentRight,
+    trade.notes.whatWentWrong,
+    now,
+    trade.id
   );
 
   console.log('Trade updated in database');
@@ -357,7 +353,7 @@ export const getTrade = async (id: string): Promise<Trade | null> => {
   try {
     const row = await db!.getFirstAsync(
       'SELECT * FROM trades WHERE id = ?',
-      [id]
+      id
     );
 
     if (!row) return null;
@@ -382,7 +378,9 @@ export const getAllTrades = async (status?: string): Promise<Trade[]> => {
     ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
     : 'SELECT * FROM trades ORDER BY date DESC';
 
-  const rows = await db!.getAllAsync(query, status ? [status] : []);
+  const rows = status
+    ? await db!.getAllAsync(query, status)
+    : await db!.getAllAsync(query);
 
   return rows.map((row: any) => rowToTrade(row as any));
 };
@@ -399,7 +397,7 @@ export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
 
   const rows = await db!.getAllAsync(
     'SELECT * FROM trades WHERE market = ? ORDER BY date DESC',
-    [market]
+    market
   );
 
   return rows.map((row: any) => rowToTrade(row as any));
@@ -418,7 +416,10 @@ export const getRecentTrades = async (limit: number = 10): Promise<Trade[]> => {
 
   const rows = await db!.getAllAsync(
     'SELECT * FROM trades WHERE status IN (?, ?, ?) ORDER BY date DESC LIMIT ?',
-    ['active', 'closed', 'reviewed', limit as any]
+    'active',
+    'closed',
+    'reviewed',
+    limit as any
   );
 
   return rows.map((row: any) => rowToTrade(row as any));
@@ -433,7 +434,7 @@ export const deleteTrade = async (id: string) => {
   }
 
   await ensureDbReady();
-  await db!.runAsync('DELETE FROM trades WHERE id = ?', [id]);
+  await db!.runAsync('DELETE FROM trades WHERE id = ?', id);
 };
 
 export const getUserPreferences = async (): Promise<UserPreferences> => {
@@ -481,7 +482,8 @@ const updateRecentMarket = async (market: string) => {
 
   await db!.runAsync(
     'UPDATE user_preferences SET recentMarkets = ?, updatedAt = ?',
-    [JSON.stringify(markets), Date.now()]
+    JSON.stringify(markets),
+    Date.now()
   );
 };
 
@@ -502,7 +504,8 @@ const updateRecentContext = async (context: string) => {
 
   await db!.runAsync(
     'UPDATE user_preferences SET recentContexts = ?, updatedAt = ?',
-    [JSON.stringify(contexts), Date.now()]
+    JSON.stringify(contexts),
+    Date.now()
   );
 };
 
@@ -533,7 +536,6 @@ export const getWinRate = async (): Promise<number> => {
 export const getBlockSuccessRates = async () => {
   if (isWeb) {
     const store = getWebStore();
-    const closed = store.trades.filter(t => ['closed', 'reviewed'].includes(t.status));
     const rate = (items: (boolean | null)[]) => {
       const defined = items.filter(v => v !== null) as boolean[];
       if (defined.length === 0) return 0;
@@ -542,11 +544,11 @@ export const getBlockSuccessRates = async () => {
     };
 
     return {
-      bias: rate(closed.map(t => t.outcomes.biasPlayedOut ?? null)),
-      narrative: rate(closed.map(t => t.outcomes.narrativePlayedOut ?? null)),
-      context: rate(closed.map(t => t.outcomes.contextHeld ?? null)),
-      entry: rate(closed.map(t => t.outcomes.entryExecuted ?? null)),
-      risk: rate(closed.map(t => t.outcomes.riskManaged ?? null)),
+      bias: rate(store.trades.map(t => t.outcomes.biasPlayedOut ?? null)),
+      narrative: rate(store.trades.map(t => t.outcomes.narrativePlayedOut ?? null)),
+      context: rate(store.trades.map(t => t.outcomes.contextHeld ?? null)),
+      entry: rate(store.trades.map(t => t.outcomes.entryExecuted ?? null)),
+      risk: rate(store.trades.map(t => t.outcomes.riskManaged ?? null)),
     };
   }
 
@@ -559,7 +561,7 @@ export const getBlockSuccessRates = async () => {
       COUNT(CASE WHEN contextHeld = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN contextHeld IS NOT NULL THEN 1 END), 0) as contextRate,
       COUNT(CASE WHEN entryExecuted = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN entryExecuted IS NOT NULL THEN 1 END), 0) as entryRate,
       COUNT(CASE WHEN riskManaged = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN riskManaged IS NOT NULL THEN 1 END), 0) as riskRate
-     FROM trades WHERE status IN ('closed', 'reviewed')
+     FROM trades
   `) as any;
 
   return {
