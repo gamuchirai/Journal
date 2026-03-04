@@ -16,8 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import { RootStackParamList, Trade } from '../types';
-import { COLORS, FOREX_PAIRS, TIMEFRAMES, DEFAULT_CONTEXTS } from '../constants';
+import { RootStackParamList, Trade, BiasData, NarrativeData, EntryData, Direction } from '../types';
+import { COLORS, FOREX_PAIRS, TIMEFRAMES, PD_ARRAYS, CONTEXT_AREAS, ENTRY_PATTERNS, DIRECTIONS, DEFAULT_CONTEXTS } from '../constants';
 import { useTradeStore } from '../store';
 import { processAndSaveImage, deleteTradeImages } from '../utils/imageUtils';
 import * as db from '../database';
@@ -27,10 +27,21 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateEditTrade'>;
 interface FormData {
   market: string;
   timeframe: string;
-  bias: string;
-  narrative: string;
-  context: string;
-  entry: string;
+  // Bias fields
+  biasDirection: Direction;
+  biasPdArray: string;
+  biasTimeframe: string;
+  biasPlayedOut: boolean | null;
+  // Narrative fields
+  narrativeContextArea: string;
+  narrativePdArray: string;
+  narrativeTimeframe: string;
+  narrativePlayedOut: boolean | null;
+  // Entry fields
+  entryPattern: string;
+  entryTimeframe: string;
+  entryPlayedOut: boolean | null;
+  // Risk
   stop: string;
   target: string;
   riskReward: string;
@@ -53,10 +64,21 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     defaultValues: {
       market: '',
       timeframe: '',
-      bias: '',
-      narrative: '',
-      context: '',
-      entry: '',
+      // Bias defaults
+      biasDirection: 'Long',
+      biasPdArray: '',
+      biasTimeframe: '',
+      biasPlayedOut: null,
+      // Narrative defaults
+      narrativeContextArea: '',
+      narrativePdArray: '',
+      narrativeTimeframe: '',
+      narrativePlayedOut: null,
+      // Entry defaults
+      entryPattern: '',
+      entryTimeframe: '',
+      entryPlayedOut: null,
+      // Risk
       stop: '',
       target: '',
       riskReward: '',
@@ -79,13 +101,30 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             setTrade(existingTrade);
             setScreenshotUri(existingTrade.screenshotUri);
             setThumbnailUri(existingTrade.thumbnailUri);
+            
+            // Handle both new structured format and legacy string format
+            const bias = existingTrade.bias as BiasData | string;
+            const narrative = existingTrade.narrative as NarrativeData | string;
+            const entry = existingTrade.entry as EntryData | string;
+            
             reset({
               market: existingTrade.market,
               timeframe: existingTrade.timeframe,
-              bias: existingTrade.bias,
-              narrative: existingTrade.narrative,
-              context: existingTrade.context,
-              entry: existingTrade.entry,
+              // Bias fields
+              biasDirection: typeof bias === 'object' ? bias.direction : 'Long',
+              biasPdArray: typeof bias === 'object' ? bias.pdArray : '',
+              biasTimeframe: typeof bias === 'object' ? bias.timeframe : '',
+              biasPlayedOut: typeof bias === 'object' ? bias.playedOut : null,
+              // Narrative fields
+              narrativeContextArea: typeof narrative === 'object' ? narrative.contextArea : '',
+              narrativePdArray: typeof narrative === 'object' ? narrative.pdArray : '',
+              narrativeTimeframe: typeof narrative === 'object' ? narrative.timeframe : '',
+              narrativePlayedOut: typeof narrative === 'object' ? narrative.playedOut : null,
+              // Entry fields
+              entryPattern: typeof entry === 'object' ? entry.entryPattern : '',
+              entryTimeframe: typeof entry === 'object' ? entry.timeframe : '',
+              entryPlayedOut: typeof entry === 'object' ? entry.playedOut : null,
+              // Risk
               stop: existingTrade.risk.stop,
               target: existingTrade.risk.target,
               riskReward: existingTrade.risk.riskReward,
@@ -99,7 +138,14 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           reset({
             timeframe: prefs.defaultTimeframe,
             market: prefs.recentMarkets[0] || FOREX_PAIRS[0],
-            context: prefs.recentContexts[0] || DEFAULT_CONTEXTS[0],
+            biasDirection: 'Long',
+            biasPdArray: PD_ARRAYS[0],
+            biasTimeframe: prefs.defaultTimeframe,
+            narrativeContextArea: CONTEXT_AREAS[0],
+            narrativePdArray: PD_ARRAYS[0],
+            narrativeTimeframe: prefs.defaultTimeframe,
+            entryPattern: ENTRY_PATTERNS[0],
+            entryTimeframe: prefs.defaultTimeframe,
           });
         }
       } catch (error) {
@@ -152,41 +198,59 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     try {
       // Calculate Risk:Reward ratio
       let calculatedRR = '';
-      if (data.entry && data.stop && data.target) {
-        const entry = parseFloat(data.entry);
+      if (data.stop && data.target) {
         const stop = parseFloat(data.stop);
         const target = parseFloat(data.target);
         
-        if (!isNaN(entry) && !isNaN(stop) && !isNaN(target)) {
-          const risk = Math.abs(entry - stop);
-          const reward = Math.abs(target - entry);
-          if (risk > 0) {
-            const rrRatio = reward / risk;
-            calculatedRR = `1:${rrRatio.toFixed(2)}`;
-          }
+        // Simple R:R calculation based on difference
+        if (!isNaN(stop) && !isNaN(target) && stop !== target) {
+          // This is a simplified calculation - user should input proper values
+          calculatedRR = data.riskReward || '';
         }
       }
+      
+      // Build structured bias
+      const biasData: BiasData = {
+        direction: data.biasDirection,
+        pdArray: data.biasPdArray,
+        timeframe: data.biasTimeframe,
+        playedOut: data.biasPlayedOut,
+      };
+      
+      // Build structured narrative
+      const narrativeData: NarrativeData = {
+        contextArea: data.narrativeContextArea,
+        pdArray: data.narrativePdArray,
+        timeframe: data.narrativeTimeframe,
+        playedOut: data.narrativePlayedOut,
+      };
+      
+      // Build structured entry
+      const entryData: EntryData = {
+        entryPattern: data.entryPattern,
+        timeframe: data.entryTimeframe,
+        playedOut: data.entryPlayedOut,
+      };
       
       const newTrade: Trade = {
         id: trade?.id || `trade_${Date.now()}`,
         date: trade?.date || Date.now(),
         market: data.market,
         timeframe: data.timeframe,
-        bias: data.bias,
-        narrative: data.narrative,
-        context: data.context,
-        entry: data.entry,
+        bias: biasData,
+        narrative: narrativeData,
+        entry: entryData,
         risk: {
           stop: data.stop,
           target: data.target,
-          riskReward: calculatedRR,
+          riskReward: calculatedRR || data.riskReward,
         },
         status: trade?.status || 'draft',
         outcomes: trade?.outcomes || {
-          biasPlayedOut: null,
-          narrativePlayedOut: null,
+          biasPlayedOut: data.biasPlayedOut,
+          narrativePlayedOut: data.narrativePlayedOut,
           contextHeld: null,
-          entryExecuted: null,
+          entryExecuted: data.entryPlayedOut,
           riskManaged: null,
         },
         screenshotUri,
@@ -300,15 +364,43 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           />
         </View>
 
-        {/* Bias */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Bias</Text>
+        {/* ===== BIAS SECTION ===== */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>📊 Bias</Text>
+            <Controller
+              control={control}
+              name="biasPlayedOut"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.playedOutToggle}>
+                  <Text style={styles.playedOutLabel}>Played Out?</Text>
+                  <View style={styles.playedOutButtons}>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
+                      onPress={() => onChange(value === true ? null : true)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
+                      onPress={() => onChange(value === false ? null : false)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+          
+          {/* Direction */}
+          <Text style={styles.subLabel}>Direction</Text>
           <Controller
             control={control}
-            name="bias"
+            name="biasDirection"
             render={({ field: { value, onChange } }) => (
               <View style={styles.buttonGroupContainer}>
-                {['Long', 'Short', 'Neutral'].map((option) => (
+                {DIRECTIONS.map((option) => (
                   <TouchableOpacity
                     key={option}
                     style={[
@@ -330,80 +422,288 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               </View>
             )}
           />
-        </View>
-
-        {/* Narrative */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Narrative</Text>
+          
+          {/* PD Array for Bias */}
+          <Text style={[styles.subLabel, styles.marginTop]}>PD Array</Text>
           <Controller
             control={control}
-            name="narrative"
-            render={({ field: { value, onChange } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Enter narrative..."
-                placeholderTextColor={COLORS.textLight}
-                value={value}
-                onChangeText={onChange}
-                multiline
-                numberOfLines={3}
-              />
-            )}
-          />
-        </View>
-
-        {/* Context */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Context</Text>
-          <Controller
-            control={control}
-            name="context"
+            name="biasPdArray"
             render={({ field: { value, onChange } }) => (
               <View style={styles.pickerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {[...preferences.recentContexts, ...DEFAULT_CONTEXTS]
-                    .filter((c, i, arr) => arr.indexOf(c) === i)
-                    .slice(0, 6)
-                    .map((ctx) => (
-                      <TouchableOpacity
-                        key={ctx}
+                  {PD_ARRAYS.map((pda) => (
+                    <TouchableOpacity
+                      key={pda}
+                      style={[
+                        styles.pickerOption,
+                        value === pda && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(pda)}
+                    >
+                      <Text
                         style={[
-                          styles.pickerOption,
-                          value === ctx && styles.pickerOptionActive,
+                          styles.pickerOptionText,
+                          value === pda && styles.pickerOptionTextActive,
                         ]}
-                        onPress={() => onChange(ctx)}
                       >
-                        <Text
-                          style={[
-                            styles.pickerOptionText,
-                            value === ctx && styles.pickerOptionTextActive,
-                          ]}
-                        >
-                          {ctx}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        {pda}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
+          
+          {/* Timeframe for Bias */}
+          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
+          <Controller
+            control={control}
+            name="biasTimeframe"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {TIMEFRAMES.map((tf) => (
+                    <TouchableOpacity
+                      key={tf}
+                      style={[
+                        styles.pickerOptionSmall,
+                        value === tf && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(tf)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === tf && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {tf}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </ScrollView>
               </View>
             )}
           />
         </View>
 
-        {/* Entry */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Entry</Text>
+        {/* ===== NARRATIVE SECTION ===== */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>📖 Narrative</Text>
+            <Controller
+              control={control}
+              name="narrativePlayedOut"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.playedOutToggle}>
+                  <Text style={styles.playedOutLabel}>Played Out?</Text>
+                  <View style={styles.playedOutButtons}>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
+                      onPress={() => onChange(value === true ? null : true)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
+                      onPress={() => onChange(value === false ? null : false)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+          
+          {/* Context Area */}
+          <Text style={styles.subLabel}>Context Area</Text>
           <Controller
             control={control}
-            name="entry"
+            name="narrativeContextArea"
             render={({ field: { value, onChange } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Enter entry price..."
-                placeholderTextColor={COLORS.textLight}
-                value={value}
-                onChangeText={onChange}
-                keyboardType="decimal-pad"
-              />
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {CONTEXT_AREAS.map((ctx) => (
+                    <TouchableOpacity
+                      key={ctx}
+                      style={[
+                        styles.pickerOption,
+                        value === ctx && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(ctx)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === ctx && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {ctx}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
+          
+          {/* PD Array for Narrative */}
+          <Text style={[styles.subLabel, styles.marginTop]}>PD Array</Text>
+          <Controller
+            control={control}
+            name="narrativePdArray"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {PD_ARRAYS.map((pda) => (
+                    <TouchableOpacity
+                      key={pda}
+                      style={[
+                        styles.pickerOption,
+                        value === pda && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(pda)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === pda && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {pda}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
+          
+          {/* Timeframe for Narrative */}
+          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
+          <Controller
+            control={control}
+            name="narrativeTimeframe"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {TIMEFRAMES.map((tf) => (
+                    <TouchableOpacity
+                      key={tf}
+                      style={[
+                        styles.pickerOptionSmall,
+                        value === tf && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(tf)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === tf && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {tf}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
+        </View>
+
+        {/* ===== ENTRY SECTION ===== */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>🎯 Entry</Text>
+            <Controller
+              control={control}
+              name="entryPlayedOut"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.playedOutToggle}>
+                  <Text style={styles.playedOutLabel}>Played Out?</Text>
+                  <View style={styles.playedOutButtons}>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
+                      onPress={() => onChange(value === true ? null : true)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
+                      onPress={() => onChange(value === false ? null : false)}
+                    >
+                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+          
+          {/* Entry Pattern */}
+          <Text style={styles.subLabel}>Entry Pattern</Text>
+          <Controller
+            control={control}
+            name="entryPattern"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {ENTRY_PATTERNS.map((pattern) => (
+                    <TouchableOpacity
+                      key={pattern}
+                      style={[
+                        styles.pickerOption,
+                        value === pattern && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(pattern)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === pattern && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {pattern}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
+          
+          {/* Timeframe for Entry */}
+          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
+          <Controller
+            control={control}
+            name="entryTimeframe"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {TIMEFRAMES.map((tf) => (
+                    <TouchableOpacity
+                      key={tf}
+                      style={[
+                        styles.pickerOptionSmall,
+                        value === tf && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(tf)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === tf && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {tf}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
             )}
           />
         </View>
@@ -495,6 +795,74 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
+  // New Section Card Style for Building Blocks
+  sectionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textLight,
+    marginBottom: 6,
+  },
+  // Played Out Toggle Styles
+  playedOutToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  playedOutLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
+  },
+  playedOutButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  playedOutBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playedOutBtnYes: {
+    backgroundColor: COLORS.success,
+  },
+  playedOutBtnNo: {
+    backgroundColor: COLORS.error,
+  },
+  playedOutBtnText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.textLight,
+  },
+  playedOutBtnTextActive: {
+    color: COLORS.white,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -510,6 +878,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: COLORS.secondary,
     marginRight: 8,
+  },
+  pickerOptionSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: COLORS.secondary,
+    marginRight: 6,
   },
   pickerOptionActive: {
     backgroundColor: COLORS.primary,

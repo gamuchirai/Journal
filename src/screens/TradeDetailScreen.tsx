@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Trade } from '../types';
+import { RootStackParamList, Trade, BiasData, NarrativeData, EntryData } from '../types';
 import { COLORS } from '../constants';
 import * as db from '../database';
 import { deleteTradeImages } from '../utils/imageUtils';
@@ -88,6 +88,41 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
     });
   };
 
+  // Building Block Card Component with Played Out indicator
+  const BuildingBlockCard = ({ 
+    title, 
+    playedOut, 
+    children 
+  }: { 
+    title: string; 
+    playedOut: boolean | null; 
+    children: React.ReactNode 
+  }) => (
+    <View style={styles.buildingBlockCard}>
+      <View style={styles.buildingBlockHeader}>
+        <Text style={styles.buildingBlockTitle}>{title}</Text>
+        <View style={styles.playedOutIndicator}>
+          <Text style={styles.playedOutText}>Played Out</Text>
+          {playedOut === null ? (
+            <View style={styles.playedOutBadgeNeutral}>
+              <Text style={styles.playedOutBadgeText}>—</Text>
+            </View>
+          ) : (
+            <View style={[
+              styles.playedOutBadge,
+              { backgroundColor: playedOut ? COLORS.success : COLORS.error }
+            ]}>
+              <Text style={styles.playedOutBadgeText}>{playedOut ? '✓' : '✕'}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+      <View style={styles.buildingBlockContent}>
+        {children}
+      </View>
+    </View>
+  );
+
   const OutcomeBlock = ({ label, value }: { label: string; value: boolean | null }) => (
     <View style={styles.outcomeBlock}>
       <Text style={styles.outcomeLabel}>{label}</Text>
@@ -111,7 +146,8 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
       style={styles.container} 
       contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       showsVerticalScrollIndicator={false}
-    >      {/* Header Info */}
+    >
+      {/* Header Info */}
       <View style={styles.headerCard}>
         <View style={styles.headerRow}>
           <Text style={styles.market}>{trade.market}</Text>
@@ -144,29 +180,85 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
         </View>
       )}
 
-      {/* Trading Building Blocks */}
+      {/* Trading Building Blocks - New Structured Format */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Trading Building Blocks</Text>
-        <View style={styles.blockGrid}>
-          <View style={styles.blockItem}>
-            <Text style={styles.blockLabel}>Bias</Text>
-            <Text style={styles.blockValue}>{trade.bias}</Text>
-          </View>
-          <View style={styles.blockItem}>
-            <Text style={styles.blockLabel}>Narrative</Text>
-            <Text style={styles.blockValue}>{trade.narrative}</Text>
-          </View>
-        </View>
-        <View style={styles.blockGrid}>
-          <View style={styles.blockItem}>
-            <Text style={styles.blockLabel}>Context</Text>
-            <Text style={styles.blockValue}>{trade.context}</Text>
-          </View>
-          <View style={styles.blockItem}>
-            <Text style={styles.blockLabel}>Entry</Text>
-            <Text style={styles.blockValue}>{trade.entry}</Text>
-          </View>
-        </View>
+        
+        {/* Bias Block */}
+        <BuildingBlockCard 
+          title="📊 Bias"
+          playedOut={typeof trade.bias === 'object' ? (trade.bias as BiasData).playedOut : null}
+        >
+          {typeof trade.bias === 'object' ? (
+            <>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Direction:</Text>
+                <View style={[styles.directionBadge, { 
+                  backgroundColor: (trade.bias as BiasData).direction === 'Long' ? COLORS.success : 
+                                   (trade.bias as BiasData).direction === 'Short' ? COLORS.error : COLORS.textLight 
+                }]}>
+                  <Text style={styles.directionBadgeText}>{(trade.bias as BiasData).direction}</Text>
+                </View>
+              </View>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>PD Array:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.bias as BiasData).pdArray}</Text>
+              </View>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Timeframe:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.bias as BiasData).timeframe}</Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.blockValue}>{trade.bias as string}</Text>
+          )}
+        </BuildingBlockCard>
+        
+        {/* Narrative Block */}
+        <BuildingBlockCard 
+          title="📖 Narrative"
+          playedOut={typeof trade.narrative === 'object' ? (trade.narrative as NarrativeData).playedOut : null}
+        >
+          {typeof trade.narrative === 'object' ? (
+            <>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Context Area:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.narrative as NarrativeData).contextArea}</Text>
+              </View>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>PD Array:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.narrative as NarrativeData).pdArray}</Text>
+              </View>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Timeframe:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.narrative as NarrativeData).timeframe}</Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.blockValue}>{trade.narrative as string}</Text>
+          )}
+        </BuildingBlockCard>
+        
+        {/* Entry Block */}
+        <BuildingBlockCard 
+          title="🎯 Entry"
+          playedOut={typeof trade.entry === 'object' ? (trade.entry as EntryData).playedOut : null}
+        >
+          {typeof trade.entry === 'object' ? (
+            <>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Entry Pattern:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.entry as EntryData).entryPattern}</Text>
+              </View>
+              <View style={styles.blockRow}>
+                <Text style={styles.blockFieldLabel}>Timeframe:</Text>
+                <Text style={styles.blockFieldValue}>{(trade.entry as EntryData).timeframe}</Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.blockValue}>{trade.entry as string}</Text>
+          )}
+        </BuildingBlockCard>
       </View>
 
       {/* Risk Management */}
@@ -366,6 +458,84 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     fontWeight: '600',
+  },
+  // New Building Block Card Styles
+  buildingBlockCard: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  buildingBlockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  buildingBlockTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  buildingBlockContent: {
+    padding: 12,
+  },
+  blockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  blockFieldLabel: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
+  blockFieldValue: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  directionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  directionBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  playedOutIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  playedOutText: {
+    fontSize: 11,
+    color: COLORS.secondary,
+  },
+  playedOutBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playedOutBadgeNeutral: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playedOutBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   riskGrid: {
     flexDirection: 'row',

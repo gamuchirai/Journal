@@ -42,7 +42,52 @@ export const TIMEFRAMES = [
   'M',
 ];
 
-// Default Contexts/Tags
+// Directions for Bias
+export const DIRECTIONS = ['Long', 'Short', 'Neutral'] as const;
+
+// PD Arrays (Price Delivery Arrays) - ICT Concepts
+export const PD_ARRAYS = [
+  'FVG',           // Fair Value Gap
+  'Swing Point',   // Swing High/Low
+  'OB',            // Order Block
+  'BB',            // Breaker Block
+  'MB',            // Mitigation Block
+  'IFVG',          // Inverse Fair Value Gap
+  'VI',            // Volume Imbalance
+  'Liquidity',     // Liquidity Pool
+  'EQH',           // Equal Highs
+  'EQL',           // Equal Lows
+];
+
+// Context Areas for Narrative
+export const CONTEXT_AREAS = [
+  'Premium',
+  'Discount',
+  'Equilibrium',
+  'HTF POI',
+  'Daily Range',
+  'Weekly Range',
+  'Asia Range',
+  'London Open',
+  'NY Open',
+  'Session High/Low',
+];
+
+// Entry Patterns
+export const ENTRY_PATTERNS = [
+  'FVG Entry',
+  'OTE',              // Optimal Trade Entry (Fib)
+  'BOS Confirmation', // Break of Structure
+  'CHOCH',            // Change of Character
+  'MSS',              // Market Structure Shift
+  'Breaker Retest',
+  'OB Tap',
+  'Liquidity Sweep',
+  'Turtle Soup',
+  'Silver Bullet',
+];
+
+// Default Contexts/Tags (legacy - kept for backwards compatibility)
 export const DEFAULT_CONTEXTS = [
   'HTF Trend',
   'Liquidity Sweep',

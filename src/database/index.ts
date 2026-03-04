@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { Trade, UserPreferences, TradeOutcomes } from '../types';
+import { Trade, UserPreferences, TradeOutcomes, BiasData, NarrativeData, EntryData } from '../types';
 import { FOREX_PAIRS, TIMEFRAMES, DEFAULT_CONTEXTS } from '../constants';
 
 const isWeb = Platform.OS === 'web';
@@ -73,10 +73,20 @@ export const initializeDatabase = async () => {
   initializationPromise = (async () => {
     try {
       console.log('Starting database initialization...');
-      const SQLite = await import('expo-sqlite');
+      const SQLiteModule = await import('expo-sqlite');
       console.log('SQLite module loaded');
-      
-      db = await SQLite.openDatabaseAsync('tradeflow.db');
+
+      const sqliteAny = SQLiteModule as any;
+      const sqliteApi = sqliteAny.default ?? sqliteAny;
+
+      if (typeof sqliteApi.openDatabaseAsync === 'function') {
+        db = await sqliteApi.openDatabaseAsync('tradeflow.db');
+      } else if (typeof sqliteApi.openDatabaseSync === 'function') {
+        db = sqliteApi.openDatabaseSync('tradeflow.db');
+      } else {
+        throw new Error('expo-sqlite does not expose openDatabaseAsync/openDatabaseSync');
+      }
+
       console.log('Database opened');
       
       if (!db) {
@@ -208,6 +218,12 @@ export const createTrade = async (trade: Trade) => {
   const id = trade.id || `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
   console.log('Trade ID:', id);
 
+  // Serialize structured data to JSON strings
+  const biasJson = typeof trade.bias === 'object' ? JSON.stringify(trade.bias) : trade.bias;
+  const narrativeJson = typeof trade.narrative === 'object' ? JSON.stringify(trade.narrative) : trade.narrative;
+  const entryJson = typeof trade.entry === 'object' ? JSON.stringify(trade.entry) : trade.entry;
+  const contextStr = trade.context || '';
+
   if (isWeb) {
     console.log('Using web storage');
     const store = getWebStore();
@@ -218,7 +234,6 @@ export const createTrade = async (trade: Trade) => {
     store.trades = [newTrade, ...store.trades.filter(t => t.id !== id)];
     saveWebStore(store);
     await updateRecentMarket(trade.market);
-    await updateRecentContext(trade.context);
     console.log('=== DB: createTrade completed (web) ===');
     return id;
   }
@@ -238,10 +253,10 @@ export const createTrade = async (trade: Trade) => {
       trade.date,
       trade.market,
       trade.timeframe,
-      trade.bias,
-      trade.narrative,
-      trade.context,
-      trade.entry,
+      biasJson,
+      narrativeJson,
+      contextStr,
+      entryJson,
       trade.risk.stop,
       trade.risk.target,
       trade.risk.riskReward,
@@ -260,7 +275,6 @@ export const createTrade = async (trade: Trade) => {
   
   // Update recent markets
   await updateRecentMarket(trade.market);
-  await updateRecentContext(trade.context);
 
   console.log('=== DB: createTrade completed ===');
   return id;
@@ -271,13 +285,18 @@ export const updateTrade = async (trade: Trade) => {
   console.log('Trade ID:', trade.id);
   const now = Date.now();
 
+  // Serialize structured data to JSON strings
+  const biasJson = typeof trade.bias === 'object' ? JSON.stringify(trade.bias) : trade.bias;
+  const narrativeJson = typeof trade.narrative === 'object' ? JSON.stringify(trade.narrative) : trade.narrative;
+  const entryJson = typeof trade.entry === 'object' ? JSON.stringify(trade.entry) : trade.entry;
+  const contextStr = trade.context || '';
+
   if (isWeb) {
     console.log('Using web storage');
     const store = getWebStore();
     store.trades = store.trades.map(t => (t.id === trade.id ? { ...trade } : t));
     saveWebStore(store);
     await updateRecentMarket(trade.market);
-    await updateRecentContext(trade.context);
     console.log('=== DB: updateTrade completed (web) ===');
     return;
   }
@@ -299,10 +318,10 @@ export const updateTrade = async (trade: Trade) => {
       trade.date,
       trade.market,
       trade.timeframe,
-      trade.bias,
-      trade.narrative,
-      trade.context,
-      trade.entry,
+      biasJson,
+      narrativeJson,
+      contextStr,
+      entryJson,
       trade.risk.stop,
       trade.risk.target,
       trade.risk.riskReward,
@@ -324,7 +343,6 @@ export const updateTrade = async (trade: Trade) => {
 
   console.log('Trade updated in database');
   await updateRecentMarket(trade.market);
-  await updateRecentContext(trade.context);
   console.log('=== DB: updateTrade completed ===');
 };
 
@@ -554,15 +572,25 @@ export const getBlockSuccessRates = async () => {
 };
 
 const rowToTrade = (row: any): Trade => {
+  // Helper function to parse JSON or return original string
+  const parseJsonField = (value: string) => {
+    if (!value) return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value; // Return original string if not valid JSON (legacy data)
+    }
+  };
+
   return {
     id: row.id,
     date: row.date,
     market: row.market,
     timeframe: row.timeframe,
-    bias: row.bias,
-    narrative: row.narrative,
+    bias: parseJsonField(row.bias),
+    narrative: parseJsonField(row.narrative),
     context: row.context,
-    entry: row.entry,
+    entry: parseJsonField(row.entry),
     risk: {
       stop: row.stop || '',
       target: row.target || '',
