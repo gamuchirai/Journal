@@ -242,7 +242,7 @@ export const createTrade = async (trade: Trade) => {
       stop, target, riskReward, status, biasPlayedOut, narrativePlayedOut,
       contextHeld, entryExecuted, riskManaged, screenshotUri, thumbnailUri,
       pnl, whatWentRight, whatWentWrong, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     trade.date,
     trade.market,
