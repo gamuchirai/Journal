@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,7 +27,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateEditTrade'>;
 
 interface FormData {
   market: string;
-  timeframe: string;
   // Bias fields
   biasDirection: Direction;
   biasPdArray: string;
@@ -50,6 +50,15 @@ interface FormData {
   whatWentWrong: string;
 }
 
+type SelectField =
+  | 'market'
+  | 'biasPdArray'
+  | 'narrativePdArray'
+  | 'biasTimeframe'
+  | 'narrativeTimeframe'
+  | 'entryPattern'
+  | 'entryTimeframe';
+
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
   const { saveTrade, loading } = useTradeStore();
@@ -59,11 +68,16 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<any>(null);
   const [loadingTrade, setLoadingTrade] = useState(!!tradeId);
+  const [activeSelect, setActiveSelect] = useState<{
+    visible: boolean;
+    field: SelectField;
+    title: string;
+    options: string[];
+  } | null>(null);
 
-  const { control, handleSubmit, reset, watch } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     defaultValues: {
       market: '',
-      timeframe: '',
       // Bias defaults
       biasDirection: 'Long',
       biasPdArray: '',
@@ -109,7 +123,6 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             
             reset({
               market: existingTrade.market,
-              timeframe: existingTrade.timeframe,
               // Bias fields
               biasDirection: typeof bias === 'object' ? bias.direction : 'Long',
               biasPdArray: typeof bias === 'object' ? bias.pdArray : '',
@@ -136,7 +149,6 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         } else {
           // Set defaults for new trade
           reset({
-            timeframe: prefs.defaultTimeframe,
             market: prefs.recentMarkets[0] || FOREX_PAIRS[0],
             biasDirection: 'Long',
             biasPdArray: PD_ARRAYS[0],
@@ -189,6 +201,20 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       setScreenshotUri(null);
       setThumbnailUri(null);
     }
+  };
+
+  const openSelect = (field: SelectField, title: string, options: string[]) => {
+    setActiveSelect({ visible: true, field, title, options });
+  };
+
+  const closeSelect = () => {
+    setActiveSelect(null);
+  };
+
+  const handleSelectOption = (value: string) => {
+    if (!activeSelect) return;
+    setValue(activeSelect.field, value as any, { shouldDirty: true });
+    closeSelect();
   };
 
   const onSubmit = async (data: FormData) => {
@@ -244,7 +270,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         id: trade?.id || `trade_${Date.now()}`,
         date: trade?.date || Date.now(),
         market: data.market,
-        timeframe: data.timeframe,
+        timeframe: data.biasTimeframe || '',
         bias: biasData,
         narrative: narrativeData,
         entry: entryData,
@@ -301,76 +327,33 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Market Picker */}
+        {/* Market Select */}
         <View style={styles.section}>
           <Text style={styles.label}>Market</Text>
           <Controller
             control={control}
             name="market"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {[...preferences.recentMarkets, ...FOREX_PAIRS]
-                    .filter((m, i, arr) => arr.indexOf(m) === i)
-                    .slice(0, 8)
-                    .map((pair) => (
-                      <TouchableOpacity
-                        key={pair}
-                        style={[
-                          styles.pickerOption,
-                          value === pair && styles.pickerOptionActive,
-                        ]}
-                        onPress={() => onChange(pair)}
-                      >
-                        <Text
-                          style={[
-                            styles.pickerOptionText,
-                            value === pair && styles.pickerOptionTextActive,
-                          ]}
-                        >
-                          {pair}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                </ScrollView>
-              </View>
+            render={({ field: { value } }) => (
+              <TouchableOpacity
+                style={styles.selectBox}
+                onPress={() =>
+                  openSelect(
+                    'market',
+                    'Select Market',
+                    [...preferences.recentMarkets, ...FOREX_PAIRS]
+                      .filter((m, i, arr) => arr.indexOf(m) === i)
+                      .slice(0, 20)
+                  )
+                }
+              >
+                <Text style={styles.selectBoxText}>{value || 'Choose market'}</Text>
+                <Text style={styles.selectBoxChevron}>▼</Text>
+              </TouchableOpacity>
             )}
           />
         </View>
 
-        {/* Timeframe Picker */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Timeframe</Text>
-          <Controller
-            control={control}
-            name="timeframe"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {TIMEFRAMES.map((tf) => (
-                    <TouchableOpacity
-                      key={tf}
-                      style={[
-                        styles.pickerOption,
-                        value === tf && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(tf)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === tf && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {tf}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
-        </View>
+
 
         {/* ===== BIAS SECTION ===== */}
         <View style={styles.sectionCard}>
@@ -431,69 +414,41 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             )}
           />
           
-          {/* PD Array for Bias */}
-          <Text style={[styles.subLabel, styles.marginTop]}>PD Array</Text>
-          <Controller
-            control={control}
-            name="biasPdArray"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {PD_ARRAYS.map((pda) => (
-                    <TouchableOpacity
-                      key={pda}
-                      style={[
-                        styles.pickerOption,
-                        value === pda && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(pda)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === pda && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {pda}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
-          
-          {/* Timeframe for Bias */}
-          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
-          <Controller
-            control={control}
-            name="biasTimeframe"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {TIMEFRAMES.map((tf) => (
-                    <TouchableOpacity
-                      key={tf}
-                      style={[
-                        styles.pickerOptionSmall,
-                        value === tf && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(tf)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === tf && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {tf}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
+          {/* PD Array + Timeframe side by side */}
+          <View style={[styles.selectRow, styles.marginTop]}>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>PD Array</Text>
+              <Controller
+                control={control}
+                name="biasPdArray"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('biasPdArray', 'Select Bias PD Array', PD_ARRAYS)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Timeframe</Text>
+              <Controller
+                control={control}
+                name="biasTimeframe"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('biasTimeframe', 'Select Bias Timeframe', TIMEFRAMES)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
         </View>
 
         {/* ===== NARRATIVE SECTION ===== */}
@@ -557,69 +512,41 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             )}
           />
           
-          {/* PD Array for Narrative */}
-          <Text style={[styles.subLabel, styles.marginTop]}>PD Array</Text>
-          <Controller
-            control={control}
-            name="narrativePdArray"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {PD_ARRAYS.map((pda) => (
-                    <TouchableOpacity
-                      key={pda}
-                      style={[
-                        styles.pickerOption,
-                        value === pda && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(pda)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === pda && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {pda}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
-          
-          {/* Timeframe for Narrative */}
-          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
-          <Controller
-            control={control}
-            name="narrativeTimeframe"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {TIMEFRAMES.map((tf) => (
-                    <TouchableOpacity
-                      key={tf}
-                      style={[
-                        styles.pickerOptionSmall,
-                        value === tf && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(tf)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === tf && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {tf}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
+          {/* PD Array + Timeframe side by side */}
+          <View style={[styles.selectRow, styles.marginTop]}>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>PD Array</Text>
+              <Controller
+                control={control}
+                name="narrativePdArray"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('narrativePdArray', 'Select Narrative PD Array', PD_ARRAYS)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Timeframe</Text>
+              <Controller
+                control={control}
+                name="narrativeTimeframe"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('narrativeTimeframe', 'Select Narrative Timeframe', TIMEFRAMES)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
         </View>
 
         {/* ===== ENTRY SECTION ===== */}
@@ -651,69 +578,41 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
             />
           </View>
           
-          {/* Entry Pattern */}
-          <Text style={styles.subLabel}>Entry Pattern</Text>
-          <Controller
-            control={control}
-            name="entryPattern"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {ENTRY_PATTERNS.map((pattern) => (
-                    <TouchableOpacity
-                      key={pattern}
-                      style={[
-                        styles.pickerOption,
-                        value === pattern && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(pattern)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === pattern && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {pattern}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
-          
-          {/* Timeframe for Entry */}
-          <Text style={[styles.subLabel, styles.marginTop]}>Timeframe</Text>
-          <Controller
-            control={control}
-            name="entryTimeframe"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {TIMEFRAMES.map((tf) => (
-                    <TouchableOpacity
-                      key={tf}
-                      style={[
-                        styles.pickerOptionSmall,
-                        value === tf && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(tf)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === tf && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {tf}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
+          {/* Entry Pattern + Timeframe side by side */}
+          <View style={[styles.selectRow, styles.marginTop]}>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Pattern</Text>
+              <Controller
+                control={control}
+                name="entryPattern"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('entryPattern', 'Select Entry Pattern', ENTRY_PATTERNS)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Timeframe</Text>
+              <Controller
+                control={control}
+                name="entryTimeframe"
+                render={({ field: { value } }) => (
+                  <TouchableOpacity
+                    style={styles.selectBox}
+                    onPress={() => openSelect('entryTimeframe', 'Select Entry Timeframe', TIMEFRAMES)}
+                  >
+                    <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
+                    <Text style={styles.selectBoxChevron}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Risk Management */}
@@ -782,6 +681,33 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={!!activeSelect?.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeSelect}
+      >
+        <View style={styles.selectModalOverlay}>
+          <View style={styles.selectModalCard}>
+            <Text style={styles.selectModalTitle}>{activeSelect?.title || 'Select Option'}</Text>
+            <ScrollView style={styles.selectModalList}>
+              {(activeSelect?.options || []).map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={styles.selectModalOption}
+                  onPress={() => handleSelectOption(option)}
+                >
+                  <Text style={styles.selectModalOptionText}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.selectModalClose} onPress={closeSelect}>
+              <Text style={styles.selectModalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -876,6 +802,77 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
     marginBottom: 8,
+  },
+  selectBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectBoxText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  selectBoxChevron: {
+    fontSize: 11,
+    color: COLORS.textLight,
+  },
+  selectModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  selectModalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    maxHeight: '70%',
+    overflow: 'hidden',
+  },
+  selectModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  selectModalList: {
+    maxHeight: 320,
+  },
+  selectModalOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  selectModalOptionText: {
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  selectModalClose: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+  },
+  selectModalCloseText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  selectRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  selectHalf: {
+    flex: 1,
   },
   pickerContainer: {
     flexDirection: 'row',
