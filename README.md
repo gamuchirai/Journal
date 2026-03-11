@@ -6,7 +6,42 @@
 
 ---
 
-## 📖 Documentation
+## � Native Debugging Setup (NEW)
+
+If you're having issues connecting Expo Go app to the dev server:
+
+### Quick Links
+1. **[VISUAL_REFERENCE.md](VISUAL_REFERENCE.md)** 📱 - Visual flowcharts & quick reference (START HERE)
+2. **[QUICK_START.md](QUICK_START.md)** ⚡ - 3-minute setup
+3. **[EXPO_CONNECTION_URL.md](EXPO_CONNECTION_URL.md)** - Your IP & connection URLs
+4. **[NATIVE_SETUP_COMPLETE.md](NATIVE_SETUP_COMPLETE.md)** - Complete setup guide  
+5. **[NATIVE_DEBUG_GUIDE.md](NATIVE_DEBUG_GUIDE.md)** - Troubleshooting reference
+6. **[DEBUG_CHANGES_SUMMARY.md](DEBUG_CHANGES_SUMMARY.md)** - What was added & why
+
+### Your Connection Info
+```
+Machine IP:      192.168.1.118
+Native (Expo):   exp://192.168.1.118:8081
+Web:             http://192.168.1.118:8082
+```
+
+### Start Commands
+```bash
+npm run start:check    # Check network setup
+npm start              # Start dev server
+npm run start:network  # Start with network info
+```
+
+### Common Issues
+| Issue | Solution |
+|-------|----------|
+| "This site can't be reached" | Check WiFi, verify IP, allow firewall |
+| Expo scans but closes | Use Manual URL instead: `exp://192.168.1.118:8081` |
+| App shows error | Read error message on phone + check terminal logs |
+
+---
+
+## �📖 Documentation
 
 Read these files in order for complete understanding:
 
