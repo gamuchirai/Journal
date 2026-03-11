@@ -71,8 +71,13 @@ export interface UserPreferences {
   recentContexts: string[];
 }
 
+export type TabParamList = {
+  Dashboard: undefined;
+  Trades: undefined;
+};
+
 export type RootStackParamList = {
-  TradeList: undefined;
+  Tabs: undefined;
   CreateEditTrade: { tradeId?: string };
   TradeDetail: { tradeId: string };
   Analytics: undefined;

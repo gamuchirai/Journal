@@ -9,13 +9,18 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Trade } from '../types';
+import { RootStackParamList, TabParamList, Trade } from '../types';
 import { COLORS } from '../constants';
 import { useTradeStore } from '../store';
 import * as db from '../database';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'TradeList'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'Trades'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 const TradeListScreen = ({ navigation }: Props) => {
   const { trades, loadTrades, loading } = useTradeStore();
@@ -32,10 +37,6 @@ const TradeListScreen = ({ navigation }: Props) => {
     });
     return unsubscribe;
   }, [navigation, filter]);
-
-  const handleAddTrade = () => {
-    navigation.navigate('CreateEditTrade', {});
-  };
 
   const handleSelectTrade = (trade: Trade) => {
     navigation.navigate('TradeDetail', { tradeId: trade.id });
