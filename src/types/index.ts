@@ -80,5 +80,4 @@ export type RootStackParamList = {
   Tabs: undefined;
   CreateEditTrade: { tradeId?: string };
   TradeDetail: { tradeId: string };
-  Analytics: undefined;
 };

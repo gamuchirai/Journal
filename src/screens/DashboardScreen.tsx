@@ -4,17 +4,27 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, TabParamList, Trade } from '../types';
+import { RootStackParamList, TabParamList } from '../types';
 import { COLORS } from '../constants';
-import { useTradeStore } from '../store';
 import * as db from '../database';
+
+interface DashboardAnalytics {
+  totalTrades: number;
+  winRate: number;
+  blockRates: {
+    bias: number;
+    narrative: number;
+    context: number;
+    entry: number;
+    risk: number;
+  };
+}
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Dashboard'>,
@@ -24,22 +34,22 @@ type Props = CompositeScreenProps<
 const DashboardScreen = ({ navigation }: Props) => {
   console.log('[DashboardScreen] component mounted');
   const insets = useSafeAreaInsets();
-  const { trades, loadTrades } = useTradeStore();
-  const [winRate, setWinRate] = useState(0);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     console.log('[DashboardScreen] loadData called');
     try {
-      console.log('[DashboardScreen] About to call loadTrades');
       setLoading(true);
-      await loadTrades();
-      console.log('[DashboardScreen] loadTrades completed, trades count:', trades.length);
-      
-      console.log('[DashboardScreen] About to call getWinRate');
+      console.log('[DashboardScreen] About to load analytics data');
+      const trades = await db.getAllTrades();
       const rate = await db.getWinRate();
-      console.log('[DashboardScreen] getWinRate returned:', rate);
-      setWinRate(Math.round(rate));
+      const blockRates = await db.getBlockSuccessRates();
+      setAnalytics({
+        totalTrades: trades.length,
+        winRate: Math.round(rate),
+        blockRates,
+      });
     } catch (e) {
       console.error('[DashboardScreen] Error in loadData:', e);
     } finally {
@@ -62,102 +72,130 @@ const DashboardScreen = ({ navigation }: Props) => {
     return unsubscribe;
   }, [navigation]);
 
-  console.log('[DashboardScreen] render - trades:', trades.length, 'loading:', loading);
+  console.log('[DashboardScreen] render - loading:', loading, 'hasAnalytics:', !!analytics);
 
-  const recentTrades: Trade[] = trades.slice(0, 3);
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-  const getPnLColor = (pnl: string | null) => {
-    if (!pnl) return COLORS.textLight;
-    const v = parseFloat(pnl);
-    return v > 0 ? COLORS.success : v < 0 ? COLORS.error : COLORS.textLight;
+  const getStrongestBlockInsight = (blockRates: DashboardAnalytics['blockRates']) => {
+    const strongestBlock = Object.entries(blockRates).reduce((best, entry) =>
+      entry[1] > best[1] ? entry : best
+    );
+    const labels: Record<string, string> = {
+      bias: 'Your bias analysis is your strongest block.',
+      narrative: 'Your narrative setup is your strongest block.',
+      context: 'Your context reading is your strongest block.',
+      entry: 'Your entry execution is your strongest block.',
+      risk: 'Your risk management is your strongest block.',
+    };
+    return labels[strongestBlock[0]];
   };
 
+  const getWeakestBlockInsight = (blockRates: DashboardAnalytics['blockRates']) => {
+    const weakestBlock = Object.entries(blockRates).reduce((worst, entry) =>
+      entry[1] < worst[1] ? entry : worst
+    );
+    const labels: Record<string, string> = {
+      bias: 'Focus on improving your bias analysis.',
+      narrative: 'Your narrative setups need refinement.',
+      context: 'Work on better context evaluation.',
+      entry: 'Refine your entry execution.',
+      risk: 'Review your risk management process.',
+    };
+    return labels[weakestBlock[0]];
+  };
+
+  if (loading || !analytics) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCell}>
-          <Text style={styles.statValue}>{trades.length}</Text>
-          <Text style={styles.statLabel}>Total Trades</Text>
-        </View>
-        <View style={[styles.statCell, styles.statCellBordered]}>
-          <Text style={[styles.statValue, { color: winRate >= 50 ? COLORS.success : COLORS.error }]}>
-            {winRate}%
-          </Text>
-          <Text style={styles.statLabel}>Win Rate</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.statCell, styles.analyticsCell]}
-          onPress={() => navigation.navigate('Analytics')}
-        >
-          <Text style={styles.analyticsIcon}>📊</Text>
-          <Text style={[styles.statLabel, { color: COLORS.secondary }]}>Analytics</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Recent Trades */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Trades</Text>
-          {trades.length > 3 && (
-            <TouchableOpacity onPress={() => navigation.navigate('Trades')}>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {loading ? (
-          <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 32 }} />
-        ) : recentTrades.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No trades yet</Text>
-            <Text style={styles.emptySubtext}>Tap + to log your first trade</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
+      >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Overview</Text>
+          <View style={styles.cardsGrid}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Total Trades</Text>
+              <Text style={[styles.cardValue, styles.primaryValue]}>{analytics.totalTrades}</Text>
+            </View>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Win Rate</Text>
+              <Text
+                style={[
+                  styles.cardValue,
+                  analytics.winRate >= 55
+                    ? styles.successValue
+                    : analytics.winRate >= 50
+                    ? styles.warningValue
+                    : styles.errorValue,
+                ]}
+              >
+                {analytics.winRate}
+                <Text style={styles.cardUnit}>%</Text>
+              </Text>
+            </View>
           </View>
-        ) : (
-          recentTrades.map((trade) => (
-            <TouchableOpacity
-              key={trade.id}
-              style={styles.tradeRow}
-              onPress={() => navigation.navigate('TradeDetail', { tradeId: trade.id })}
-              activeOpacity={0.7}
-            >
-              <View style={styles.tradeRowLeft}>
-                <Text style={styles.tradeMarket}>{trade.market}</Text>
-                <Text style={styles.tradeDate}>
-                  {formatDate(trade.date)} · {trade.timeframe}
-                </Text>
-              </View>
-              <View style={styles.tradeRowRight}>
-                {trade.pnl ? (
-                  <Text style={[styles.tradePnl, { color: getPnLColor(trade.pnl) }]}>
-                    {trade.pnl}
-                  </Text>
-                ) : (
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Building Blocks Success Rate</Text>
+          <View style={styles.blocksContainer}>
+            {[
+              { label: 'Bias', rate: analytics.blockRates.bias },
+              { label: 'Narrative', rate: analytics.blockRates.narrative },
+              { label: 'Context', rate: analytics.blockRates.context },
+              { label: 'Entry', rate: analytics.blockRates.entry },
+              { label: 'Risk Management', rate: analytics.blockRates.risk },
+            ].map((block) => (
+              <View key={block.label} style={styles.blockCard}>
+                <Text style={styles.blockLabel}>{block.label}</Text>
+                <View style={styles.progressBar}>
                   <View
                     style={[
-                      styles.statusPill,
-                      {
-                        backgroundColor:
-                          trade.status === 'active' ? COLORS.warning : COLORS.border,
-                      },
+                      styles.progressFill,
+                      { width: `${block.rate}%` },
+                      block.rate >= 70
+                        ? styles.successFill
+                        : block.rate >= 50
+                        ? styles.warningFill
+                        : styles.errorFill,
                     ]}
-                  >
-                    <Text style={styles.statusPillText}>{trade.status}</Text>
-                  </View>
-                )}
+                  />
+                </View>
+                <Text style={styles.blockRate}>{block.rate}%</Text>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-    </ScrollView>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Key Insights</Text>
+          <View style={styles.insightBox}>
+            <Text style={styles.insightText}>
+              {analytics.winRate >= 60
+                ? 'Excellent win rate. Your process is working well.'
+                : analytics.winRate >= 50
+                ? 'Your win rate is above 50%. Focus on consistency.'
+                : 'Work on identifying what is holding back your win rate.'}
+            </Text>
+          </View>
+          <View style={styles.insightBox}>
+            <Text style={styles.insightText}>{getStrongestBlockInsight(analytics.blockRates)}</Text>
+          </View>
+          <View style={styles.insightBox}>
+            <Text style={styles.insightText}>{getWeakestBlockInsight(analytics.blockRates)}</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -166,116 +204,115 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    marginBottom: 12,
-  },
-  statCell: {
-    flex: 1,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  statCellBordered: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: COLORS.border,
-  },
-  analyticsCell: {
-    backgroundColor: COLORS.primary,
-  },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginBottom: 4,
-  },
-  analyticsIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+  contentContainer: {
+    padding: 12,
   },
   section: {
-    backgroundColor: COLORS.white,
-    marginBottom: 12,
+    marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: 'bold',
     color: COLORS.primary,
+    marginBottom: 12,
   },
-  seeAll: {
-    fontSize: 13,
-    color: COLORS.accent,
-    fontWeight: '600',
-  },
-  tradeRow: {
+  cardsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    gap: 12,
   },
-  tradeRowLeft: {
+  card: {
     flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    elevation: 2,
   },
-  tradeMarket: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 3,
-  },
-  tradeDate: {
+  cardTitle: {
     fontSize: 12,
     color: COLORS.textLight,
+    fontWeight: '600',
+    marginBottom: 8,
   },
-  tradeRowRight: {
-    alignItems: 'flex-end',
+  cardValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
   },
-  tradePnl: {
-    fontSize: 15,
-    fontWeight: '700',
+  cardUnit: {
+    fontSize: 18,
+    marginLeft: 4,
   },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+  primaryValue: {
+    color: COLORS.primary,
   },
-  statusPillText: {
-    fontSize: 11,
+  successValue: {
+    color: COLORS.success,
+  },
+  warningValue: {
+    color: COLORS.warning,
+  },
+  errorValue: {
+    color: COLORS.error,
+  },
+  blocksContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    elevation: 2,
+  },
+  blockCard: {
+    marginBottom: 16,
+  },
+  blockLabel: {
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: 8,
   },
-  emptyBox: {
-    paddingVertical: 40,
-    alignItems: 'center',
+  progressBar: {
+    height: 8,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 4,
   },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 6,
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
-  emptySubtext: {
-    fontSize: 13,
+  successFill: {
+    backgroundColor: COLORS.success,
+  },
+  warningFill: {
+    backgroundColor: COLORS.warning,
+  },
+  errorFill: {
+    backgroundColor: COLORS.error,
+  },
+  blockRate: {
+    fontSize: 12,
     color: COLORS.textLight,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  insightBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accent,
+    elevation: 2,
+  },
+  insightText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
   },
 });
 

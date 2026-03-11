@@ -11,7 +11,6 @@ import DashboardScreen from '../screens/DashboardScreen';
 import TradeListScreen from '../screens/TradeListScreen';
 import CreateEditTradeScreen from '../screens/CreateEditTradeScreen';
 import TradeDetailScreen from '../screens/TradeDetailScreen';
-import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 // ── DIAGNOSTIC LOGS ──────────────────────────────────────────────────────────
 console.log('[NAV] Platform.OS:', Platform.OS);
@@ -20,7 +19,6 @@ console.log('[NAV] Screens:', {
   TradeListScreen: typeof TradeListScreen,
   CreateEditTradeScreen: typeof CreateEditTradeScreen,
   TradeDetailScreen: typeof TradeDetailScreen,
-  AnalyticsScreen: typeof AnalyticsScreen,
 });
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -33,7 +31,7 @@ console.log('[NAV] Tab.Screen type (real):', typeof Tab.Screen);
 // For web, use a simple state-based tab navigation
 const WebTabNavigator = () => {
   const [activeTab, setActiveTab] = React.useState<'Dashboard' | 'Trades'>('Dashboard');
-  const [modals, setModals] = React.useState<{ CreateEditTrade?: boolean; TradeDetail?: { tradeId: string }; Analytics?: boolean }>({});
+  const [modals, setModals] = React.useState<{ CreateEditTrade?: boolean; TradeDetail?: { tradeId: string } }>({});
   const insets = useSafeAreaInsets();
   
   console.log('[WebTabNavigator] rendering with activeTab:', activeTab, 'modals:', Object.keys(modals));
@@ -347,11 +345,6 @@ export const RootNavigator = () => {
           name="TradeDetail" 
           component={TradeDetailScreen}
           options={{ title: 'Trade Details', presentation: 'card' }}
-        />
-        <Stack.Screen 
-          name="Analytics" 
-          component={AnalyticsScreen}
-          options={{ title: 'Analytics', presentation: 'card' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

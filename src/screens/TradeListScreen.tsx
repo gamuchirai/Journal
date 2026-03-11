@@ -15,7 +15,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TabParamList, Trade } from '../types';
 import { COLORS } from '../constants';
 import { useTradeStore } from '../store';
-import * as db from '../database';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Trades'>,
@@ -47,11 +46,6 @@ const TradeListScreen = ({ navigation }: Props) => {
   const handleSelectTrade = (trade: Trade) => {
     console.log('[TradeListScreen] Navigating to TradeDetail with id:', trade.id);
     navigation.navigate('TradeDetail', { tradeId: trade.id });
-  };
-
-  const handleAddTrade = () => {
-    console.log('[TradeListScreen] handleAddTrade called');
-    navigation.getParent()?.navigate('CreateEditTrade', {});
   };
 
   const formatDate = (timestamp: number) => {
@@ -154,16 +148,6 @@ const TradeListScreen = ({ navigation }: Props) => {
         />
       )}
 
-      <TouchableOpacity style={[styles.fab, { bottom: 24 + insets.bottom }]} onPress={handleAddTrade}>
-        <Text style={styles.fabText}>{String('+')}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.analyticsButton, { bottom: 24 + insets.bottom }]}
-        onPress={() => navigation.navigate('Analytics')}
-      >
-        <Text style={styles.analyticsButtonText}>{String('📊')}</Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -270,38 +254,6 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: COLORS.textLight,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  fabText: {
-    fontSize: 32,
-    color: COLORS.white,
-    fontWeight: 'bold',
-  },
-  analyticsButton: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  analyticsButtonText: {
-    fontSize: 24,
   },
 });
 
