@@ -23,23 +23,35 @@ type Props = CompositeScreenProps<
 >;
 
 const TradeListScreen = ({ navigation }: Props) => {
+  console.log('[TradeListScreen] component mounted');
   const { trades, loadTrades, loading } = useTradeStore();
   const [filter, setFilter] = useState<string | undefined>(undefined);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    console.log('[TradeListScreen] useEffect 1 - filter changed:', filter);
     loadTrades(filter as any);
   }, [filter]);
 
   useEffect(() => {
+    console.log('[TradeListScreen] useEffect 2 - focus listener setup');
     const unsubscribe = navigation.addListener('focus', () => {
+      console.log('[TradeListScreen] focus event fired');
       loadTrades(filter as any);
     });
     return unsubscribe;
   }, [navigation, filter]);
 
+  console.log('[TradeListScreen] render - trades:', trades.length, 'loading:', loading, 'filter:', filter);
+
   const handleSelectTrade = (trade: Trade) => {
+    console.log('[TradeListScreen] Navigating to TradeDetail with id:', trade.id);
     navigation.navigate('TradeDetail', { tradeId: trade.id });
+  };
+
+  const handleAddTrade = () => {
+    console.log('[TradeListScreen] handleAddTrade called');
+    navigation.getParent()?.navigate('CreateEditTrade', {});
   };
 
   const formatDate = (timestamp: number) => {

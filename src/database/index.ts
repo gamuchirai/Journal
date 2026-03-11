@@ -60,47 +60,75 @@ const saveWebStore = (store: WebStore) => {
 };
 
 export const initializeDatabase = async () => {
+  console.log('[DB INIT] initializeDatabase called');
+  console.log('[DB INIT] isWeb:', isWeb);
+  
   // If already initialized or initializing, wait for it
-  if (dbInitialized) return;
-  if (initializationPromise) return initializationPromise;
-
-  if (isWeb) {
-    getWebStore();
-    dbInitialized = true;
+  if (dbInitialized) {
+    console.log('[DB INIT] Database already initialized, returning');
     return;
   }
+  if (initializationPromise) {
+    console.log('[DB INIT] Database initialization in progress, waiting...');
+    return initializationPromise;
+  }
 
+  if (isWeb) {
+    console.log('[DB INIT] Platform is WEB, initializing web store');
+    try {
+      const store = getWebStore();
+      console.log('[DB INIT] Web store loaded, trades count:', store.trades.length);
+      dbInitialized = true;
+      console.log('[DB INIT] Web database ready');
+      return;
+    } catch (error) {
+      console.error('[DB INIT] Error loading web store:', error);
+      throw error;
+    }
+  }
+
+  console.log('[DB INIT] Platform is NATIVE, initializing SQLite');
+  
   initializationPromise = (async () => {
     try {
-      console.log('Starting database initialization...');
+      console.log('[DB INIT] Starting SQLite initialization...');
+      
+      console.log('[DB INIT] About to import expo-sqlite...');
       const SQLiteModule = await import('expo-sqlite');
-      console.log('SQLite module loaded');
+      console.log('[DB INIT] expo-sqlite imported successfully');
+      console.log('[DB INIT] SQLiteModule keys:', Object.keys(SQLiteModule).join(', '));
 
       const sqliteAny = SQLiteModule as any;
+      console.log('[DB INIT] Looking for openDatabaseAsync...');
       const openDatabaseAsync = sqliteAny.openDatabaseAsync ?? sqliteAny.default?.openDatabaseAsync;
+      console.log('[DB INIT] openDatabaseAsync:', typeof openDatabaseAsync);
 
       if (typeof openDatabaseAsync !== 'function') {
+        console.error('[DB INIT] openDatabaseAsync is not a function, typeof:', typeof openDatabaseAsync);
         throw new Error('expo-sqlite does not expose openDatabaseAsync');
       }
 
+      console.log('[DB INIT] Calling openDatabaseAsync("tradeflow.db")...');
       db = await openDatabaseAsync('tradeflow.db');
+      console.log('[DB INIT] Database connection returned:', typeof db);
 
-      console.log('Database opened');
-      
       if (!db) {
-        throw new Error('Failed to open database');
+        throw new Error('Failed to open database - returned null');
       }
 
+      console.log('[DB INIT] Calling createTables...');
       await createTables();
-      console.log('Tables created');
+      console.log('[DB INIT] Tables created successfully');
       
+      console.log('[DB INIT] Calling seedDefaultData...');
       await seedDefaultData();
-      console.log('Default data seeded');
+      console.log('[DB INIT] Default data seeded successfully');
       
       dbInitialized = true;
-      console.log('Database initialized successfully');
+      console.log('[DB INIT] Database initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      console.error('[DB INIT] Failed to initialize database:', error);
+      console.error('[DB INIT] Error stack:', error instanceof Error ? error.stack : 'No stack');
       db = null;
       dbInitialized = false;
       throw error;
@@ -343,46 +371,65 @@ export const updateTrade = async (trade: Trade) => {
 };
 
 export const getTrade = async (id: string): Promise<Trade | null> => {
+  console.log('[DB] getTrade called with id:', id);
   if (isWeb) {
+    console.log('[DB] getTrade using web store');
     const store = getWebStore();
-    return store.trades.find(t => t.id === id) || null;
+    const found = store.trades.find(t => t.id === id) || null;
+    console.log('[DB] getTrade web result:', found ? 'Found' : 'Not found');
+    return found;
   }
 
   await ensureDbReady();
 
   try {
+    console.log('[DB] getTrade querying SQLite');
     const row = await db!.getFirstAsync(
       'SELECT * FROM trades WHERE id = ?',
       id
     );
 
-    if (!row) return null;
+    if (!row) {
+      console.log('[DB] getTrade no result from query');
+      return null;
+    }
 
+    console.log('[DB] getTrade found result, converting to Trade');
     return rowToTrade(row as any);
   } catch (error) {
-    console.error('Error getting trade:', error);
+    console.error('[DB] getTrade error:', error);
     return null;
   }
 };
 
 export const getAllTrades = async (status?: string): Promise<Trade[]> => {
+  console.log('[DB] getAllTrades called with status:', status);
   if (isWeb) {
+    console.log('[DB] getAllTrades using web store');
     const store = getWebStore();
     const trades = status ? store.trades.filter(t => t.status === status) : store.trades;
+    console.log('[DB] getAllTrades web found:', trades.length, 'trades');
     return [...trades].sort((a, b) => b.date - a.date);
   }
 
   await ensureDbReady();
 
-  const query = status
-    ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
-    : 'SELECT * FROM trades ORDER BY date DESC';
+  try {
+    console.log('[DB] getAllTrades querying SQLite');
+    const query = status
+      ? 'SELECT * FROM trades WHERE status = ? ORDER BY date DESC'
+      : 'SELECT * FROM trades ORDER BY date DESC';
 
-  const rows = status
-    ? await db!.getAllAsync(query, status)
-    : await db!.getAllAsync(query);
+    const rows = status
+      ? await db!.getAllAsync(query, status)
+      : await db!.getAllAsync(query);
 
-  return rows.map((row: any) => rowToTrade(row as any));
+    console.log('[DB] getAllTrades query returned:', rows.length, 'rows');
+    return rows.map((row: any) => rowToTrade(row as any));
+  } catch (error) {
+    console.error('[DB] getAllTrades error:', error);
+    return [];
+  }
 };
 
 export const getTradesByMarket = async (market: string): Promise<Trade[]> => {
@@ -511,26 +558,47 @@ const updateRecentContext = async (context: string) => {
 
 // Analytics queries
 export const getWinRate = async (): Promise<number> => {
+  console.log('[DB] getWinRate called');
   if (isWeb) {
+    console.log('[DB] getWinRate using web store');
     const store = getWebStore();
     const closedTrades = store.trades.filter(t => ['closed', 'reviewed'].includes(t.status));
+    console.log('[DB] getWinRate closed trades:', closedTrades.length);
     const withPnl = closedTrades.filter(t => t.pnl && t.pnl.trim() !== '');
-    if (withPnl.length === 0) return 0;
+    console.log('[DB] getWinRate with PnL:', withPnl.length);
+    if (withPnl.length === 0) {
+      console.log('[DB] getWinRate returning 0 (no closed trades)');
+      return 0;
+    }
     const wins = withPnl.filter(t => Number(t.pnl) > 0).length;
-    return (wins / withPnl.length) * 100;
+    const rate = (wins / withPnl.length) * 100;
+    console.log('[DB] getWinRate computed web rate:', rate);
+    return rate;
   }
 
   await ensureDbReady();
 
-  const result = await db!.getFirstAsync(
-    `SELECT
-      COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' THEN 1 END) as total,
-      COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' AND CAST(pnl AS REAL) > 0 THEN 1 END) as wins
-     FROM trades WHERE status IN ('closed', 'reviewed')`
-  ) as any;
+  try {
+    console.log('[DB] getWinRate querying SQLite');
+    const result = await db!.getFirstAsync(
+      `SELECT
+        COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' THEN 1 END) as total,
+        COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' AND CAST(pnl AS REAL) > 0 THEN 1 END) as wins
+       FROM trades WHERE status IN ('closed', 'reviewed')`
+    ) as any;
 
-  if (!result || result.total === 0) return 0;
-  return (result.wins / result.total) * 100;
+    console.log('[DB] getWinRate query result:', result);
+    if (!result || result.total === 0) {
+      console.log('[DB] getWinRate returning 0 (no results)');
+      return 0;
+    }
+    const rate = (result.wins / result.total) * 100;
+    console.log('[DB] getWinRate computed SQLite rate:', rate);
+    return rate;
+  } catch (error) {
+    console.error('[DB] getWinRate error:', error);
+    return 0;
+  }
 };
 
 export const getBlockSuccessRates = async () => {

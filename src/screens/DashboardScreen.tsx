@@ -22,32 +22,47 @@ type Props = CompositeScreenProps<
 >;
 
 const DashboardScreen = ({ navigation }: Props) => {
+  console.log('[DashboardScreen] component mounted');
   const insets = useSafeAreaInsets();
   const { trades, loadTrades } = useTradeStore();
   const [winRate, setWinRate] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
+    console.log('[DashboardScreen] loadData called');
     try {
+      console.log('[DashboardScreen] About to call loadTrades');
       setLoading(true);
       await loadTrades();
+      console.log('[DashboardScreen] loadTrades completed, trades count:', trades.length);
+      
+      console.log('[DashboardScreen] About to call getWinRate');
       const rate = await db.getWinRate();
+      console.log('[DashboardScreen] getWinRate returned:', rate);
       setWinRate(Math.round(rate));
     } catch (e) {
-      console.error(e);
+      console.error('[DashboardScreen] Error in loadData:', e);
     } finally {
+      console.log('[DashboardScreen] loadData finally block');
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('[DashboardScreen] useEffect 1 - initial load');
     loadData();
   }, []);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', loadData);
+    console.log('[DashboardScreen] useEffect 2 - focus listener setup');
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('[DashboardScreen] focus event fired');
+      loadData();
+    });
     return unsubscribe;
   }, [navigation]);
+
+  console.log('[DashboardScreen] render - trades:', trades.length, 'loading:', loading);
 
   const recentTrades: Trade[] = trades.slice(0, 3);
 
