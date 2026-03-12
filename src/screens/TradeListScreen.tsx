@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TabParamList, Trade } from '../types';
-import { COLORS } from '../constants';
+import { C } from '../constants/Colors';
+import { T, S, cardShadow } from '../constants/Styles';
 import { useTradeStore } from '../store';
 
 type Props = CompositeScreenProps<
@@ -57,203 +58,165 @@ const TradeListScreen = ({ navigation }: Props) => {
   };
 
   const getPnLColor = (pnl: string | null) => {
-    if (!pnl) return COLORS.textLight;
+    if (!pnl) return C.textMuted;
     const value = parseFloat(pnl);
-    return value > 0 ? COLORS.success : value < 0 ? COLORS.error : COLORS.textLight;
+    return value > 0 ? C.gain : value < 0 ? C.loss : C.textMuted;
   };
 
   const renderTradeCard = ({ item }: { item: Trade }) => {
-    console.log('Rendering trade card:', item.id, 'Market:', item.market);
+    const isActive = item.status === 'active';
     return (
     <TouchableOpacity
-      style={styles.card}
+      style={[ls.card, isActive && ls.cardActive]}
       onPress={() => handleSelectTrade(item)}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
     >
-      {item.thumbnailUri && (
-        <Image
-          source={{ uri: item.thumbnailUri }}
-          style={styles.thumbnail}
-        />
-      )}
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.market}>{String(item.market || '')}</Text>
-          <Text style={[styles.pnl, { color: getPnLColor(item.pnl) }]}>
-            {String(item.pnl || '-')}
-          </Text>
+      <View style={ls.cardLeft}>
+        <Text style={ls.pairText}>{String(item.market || '')}</Text>
+        <View style={ls.cardMeta}>
+          <Text style={ls.dateText}>{formatDate(item.date)}</Text>
+          {item.timeframe ? (
+            <View style={S.tfChip}>
+              <Text style={S.tfChipText}>{String(item.timeframe)}</Text>
+            </View>
+          ) : null}
         </View>
-        <View style={styles.cardDetails}>
-          <Text style={styles.date}>{formatDate(item.date)}</Text>
-          <Text style={styles.timeframe}>{String(item.timeframe || '')}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor:
-                  item.status === 'active'
-                    ? COLORS.warning
-                    : item.status === 'closed'
-                    ? COLORS.secondary
-                    : COLORS.border,
-              },
-            ]}
-          >
-            <Text style={styles.statusText}>{String(item.status || 'draft')}</Text>
-          </View>
+      </View>
+      <View style={ls.cardRight}>
+        <Text style={[ls.pnlText, { color: getPnLColor(item.pnl) }]}>
+          {String(item.pnl || '—')}
+        </Text>
+        <View style={isActive ? S.badgeActive : S.badgeClosed}>
+          <Text style={isActive ? S.badgeActiveText : S.badgeClosedText}>
+            {String(item.status || 'draft')}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
   );};
 
+  const filters = ['All', 'Active', 'Closed'];
+
   return (
-    <View style={styles.container}>
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, !filter && styles.filterButtonActive]}
-          onPress={() => setFilter(undefined)}
-        >
-          <Text style={styles.filterButtonText}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'active' && styles.filterButtonActive]}
-          onPress={() => setFilter('active')}
-        >
-          <Text style={styles.filterButtonText}>Active</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'closed' && styles.filterButtonActive]}
-          onPress={() => setFilter('closed')}
-        >
-          <Text style={styles.filterButtonText}>Closed</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={ls.screen} edges={['top', 'bottom', 'left', 'right']}>
+      {/* Header */}
+      <View style={S.header}>
+        <Text style={T.screenTitle}>My Trades</Text>
+        <Text style={T.headerSub}>{trades.length} total</Text>
+      </View>
+
+      {/* Filter chips */}
+      <View style={ls.filterRow}>
+        {filters.map((f) => {
+          const val = f === 'All' ? undefined : f.toLowerCase();
+          const isActive = filter === val;
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[ls.chip, isActive && ls.chipActive]}
+              onPress={() => setFilter(val)}
+            >
+              <Text style={[ls.chipText, isActive && ls.chipTextActive]}>{f}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+        <View style={ls.center}>
+          <ActivityIndicator size="large" color={C.teal} />
         </View>
       ) : trades.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>No trades yet</Text>
-          <Text style={styles.emptySubtext}>Create your first trade to get started</Text>
+        <View style={ls.center}>
+          <Text style={ls.emptyText}>No trades yet</Text>
+          <Text style={ls.emptySubtext}>Create your first trade to get started</Text>
         </View>
       ) : (
         <FlatList
           data={trades}
           renderItem={renderTradeCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 90 }]}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: insets.bottom + 90, gap: 10 }}
           showsVerticalScrollIndicator={false}
         />
       )}
-
-    </View>
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  filterContainer: {
+const ls = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  filterRow: {
     flexDirection: 'row',
-    padding: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     gap: 8,
   },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.secondary,
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: 'transparent',
   },
-  filterButtonActive: {
-    backgroundColor: COLORS.primary,
+  chipActive: {
+    backgroundColor: C.teal,
+    borderColor: C.teal,
   },
-  filterButtonText: {
-    color: COLORS.text,
+  chipText: {
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 12,
-    fontWeight: '600',
+    color: C.textMuted,
   },
-  listContainer: {
-    padding: 12,
-    gap: 12,
-  },
+  chipTextActive: { color: '#ffffff' },
   card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    elevation: 2,
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    backgroundColor: COLORS.secondary,
-  },
-  cardContent: {
-    flex: 1,
-    padding: 12,
-    justifyContent: 'space-between',
-  },
-  cardHeader: {
+    backgroundColor: C.elevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    padding: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    ...cardShadow,
   },
-  market: {
+  cardActive: {
+    borderColor: 'rgba(243,149,48,0.4)',
+    backgroundColor: '#fffdf9',
+  },
+  cardLeft: { flex: 1 },
+  pairText: {
+    fontFamily: 'DMMono_500Medium',
+    fontSize: 15,
+    color: C.text,
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: C.textDim,
+  },
+  cardRight: { alignItems: 'flex-end', gap: 6 },
+  pnlText: {
+    fontFamily: 'DMMono_500Medium',
     fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  pnl: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cardDetails: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  date: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
-  timeframe: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginLeft: 'auto',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    letterSpacing: -0.3,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 16,
+    color: C.text,
     marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: COLORS.textLight,
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: C.textMuted,
   },
 });
 

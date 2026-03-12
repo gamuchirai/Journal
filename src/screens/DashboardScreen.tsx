@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TabParamList } from '../types';
-import { COLORS } from '../constants';
+import { C } from '../constants/Colors';
+import { T, S, cardShadow, accentShadow } from '../constants/Styles';
 import * as db from '../database';
 
 interface DashboardAnalytics {
@@ -36,6 +38,8 @@ const DashboardScreen = ({ navigation }: Props) => {
   const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const barAnims = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0))).current;
 
   const loadData = async () => {
     console.log('[DashboardScreen] loadData called');
@@ -64,15 +68,24 @@ const DashboardScreen = ({ navigation }: Props) => {
   }, []);
 
   useEffect(() => {
-    console.log('[DashboardScreen] useEffect 2 - focus listener setup');
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('[DashboardScreen] focus event fired');
-      loadData();
-    });
+    const unsubscribe = navigation.addListener('focus', () => { loadData(); });
     return unsubscribe;
   }, [navigation]);
 
-  console.log('[DashboardScreen] render - loading:', loading, 'hasAnalytics:', !!analytics);
+  useEffect(() => {
+    if (analytics) {
+      barAnims.forEach((anim) => anim.setValue(0));
+      const anims = barAnims.map((anim, i) =>
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 900,
+          delay: i * 80,
+          useNativeDriver: false,
+        })
+      );
+      Animated.stagger(80, anims).start();
+    }
+  }, [analytics]);
 
   const getStrongestBlockInsight = (blockRates: DashboardAnalytics['blockRates']) => {
     const strongestBlock = Object.entries(blockRates).reduce((best, entry) =>
@@ -102,217 +115,236 @@ const DashboardScreen = ({ navigation }: Props) => {
     return labels[weakestBlock[0]];
   };
 
+  const blocks = analytics
+    ? [
+        { label: 'Bias', rate: analytics.blockRates.bias },
+        { label: 'Narrative', rate: analytics.blockRates.narrative },
+        { label: 'Context', rate: analytics.blockRates.context },
+        { label: 'Entry', rate: analytics.blockRates.entry },
+        { label: 'Risk Mgmt', rate: analytics.blockRates.risk },
+      ]
+    : [];
+
+  const insights = analytics
+    ? [
+        {
+          icon: '◈',
+          text:
+            analytics.winRate >= 60
+              ? 'Excellent win rate. Your process is working well.'
+              : analytics.winRate >= 50
+              ? 'Win rate above 50%. Focus on consistency.'
+              : 'Work on identifying what is holding back your win rate.',
+          type: 'positive',
+        },
+        { icon: '▲', text: getStrongestBlockInsight(analytics.blockRates), type: 'positive' },
+        { icon: '◇', text: getWeakestBlockInsight(analytics.blockRates), type: 'neutral' },
+      ]
+    : [];
+
   if (loading || !analytics) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+      <SafeAreaView style={ls.screen} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={ls.center}>
+          <ActivityIndicator size="large" color={C.teal} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={ls.screen} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
-        style={styles.container}
+        style={ls.screen}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Overview</Text>
-          <View style={styles.cardsGrid}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Total Trades</Text>
-              <Text style={[styles.cardValue, styles.primaryValue]}>{analytics.totalTrades}</Text>
-            </View>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Win Rate</Text>
-              <Text
-                style={[
-                  styles.cardValue,
-                  analytics.winRate >= 55
-                    ? styles.successValue
-                    : analytics.winRate >= 50
-                    ? styles.warningValue
-                    : styles.errorValue,
-                ]}
-              >
-                {analytics.winRate}
-                <Text style={styles.cardUnit}>%</Text>
-              </Text>
-            </View>
-          </View>
+        {/* Header */}
+        <View style={S.header}>
+          <Text style={T.screenTitle}>TradeFlow</Text>
+          <Text style={T.headerSub}>
+            {new Date().toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Building Blocks Success Rate</Text>
-          <View style={styles.blocksContainer}>
-            {[
-              { label: 'Bias', rate: analytics.blockRates.bias },
-              { label: 'Narrative', rate: analytics.blockRates.narrative },
-              { label: 'Context', rate: analytics.blockRates.context },
-              { label: 'Entry', rate: analytics.blockRates.entry },
-              { label: 'Risk Management', rate: analytics.blockRates.risk },
-            ].map((block) => (
-              <View key={block.label} style={styles.blockCard}>
-                <Text style={styles.blockLabel}>{block.label}</Text>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${block.rate}%` },
-                      block.rate >= 70
-                        ? styles.successFill
-                        : block.rate >= 50
-                        ? styles.warningFill
-                        : styles.errorFill,
-                    ]}
-                  />
-                </View>
-                <Text style={styles.blockRate}>{block.rate}%</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        {/* Overview label */}
+        <Text style={[T.sectionLabel, S.sectionLabel]}>Overview</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Insights</Text>
-          <View style={styles.insightBox}>
-            <Text style={styles.insightText}>
-              {analytics.winRate >= 60
-                ? 'Excellent win rate. Your process is working well.'
-                : analytics.winRate >= 50
-                ? 'Your win rate is above 50%. Focus on consistency.'
-                : 'Work on identifying what is holding back your win rate.'}
+        {/* Stat cards */}
+        <View style={ls.statRow}>
+          <View style={ls.statCard}>
+            <Text style={T.statLabel}>Total Trades</Text>
+            <Text style={[T.statValue, { marginTop: 8 }]}>{analytics.totalTrades}</Text>
+            <Text style={ls.statDelta}>↑ All time</Text>
+          </View>
+          <View style={ls.statCardAccent}>
+            <Text style={ls.statLabelLight}>Win Rate</Text>
+            <Text style={[T.statValue, { color: '#ffffff', marginTop: 8 }]}>
+              {analytics.winRate}%
+            </Text>
+            <Text style={ls.statDeltaLight}>
+              {analytics.winRate >= 50 ? '↑ Above 50%' : '↓ Below 50%'}
             </Text>
           </View>
-          <View style={styles.insightBox}>
-            <Text style={styles.insightText}>{getStrongestBlockInsight(analytics.blockRates)}</Text>
-          </View>
-          <View style={styles.insightBox}>
-            <Text style={styles.insightText}>{getWeakestBlockInsight(analytics.blockRates)}</Text>
-          </View>
+        </View>
+
+        {/* Building Blocks label */}
+        <Text style={[T.sectionLabel, S.sectionLabel]}>Building Blocks</Text>
+
+        {/* Building block bars */}
+        <View style={ls.blocksContainer}>
+          {blocks.map((block, i) => (
+            <View key={block.label} style={ls.blockRow}>
+              <Text style={ls.blockLabel}>{block.label}</Text>
+              <View style={ls.barBg}>
+                <Animated.View
+                  style={[
+                    ls.barFill,
+                    {
+                      width: barAnims[i].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', `${block.rate}%`],
+                      }),
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={ls.barPct}>{block.rate}%</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Insights label */}
+        <Text style={[T.sectionLabel, S.sectionLabel]}>Key Insights</Text>
+
+        {/* Insight cards */}
+        <View style={ls.insightsContainer}>
+          {insights.map((insight, i) => (
+            <View key={i} style={ls.insightCard}>
+              <Text
+                style={[
+                  ls.insightIcon,
+                  insight.type === 'positive' ? ls.iconPositive : ls.iconNeutral,
+                ]}
+              >
+                {insight.icon}
+              </Text>
+              <Text style={ls.insightText}>{insight.text}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  contentContainer: {
-    padding: 12,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: 12,
-  },
-  cardsGrid: {
+const ls = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  statRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    paddingHorizontal: 24,
   },
-  card: {
+  statCard: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    backgroundColor: C.elevated,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.border,
     padding: 16,
-    alignItems: 'center',
-    elevation: 2,
+    ...cardShadow,
   },
-  cardTitle: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    fontWeight: '600',
-    marginBottom: 8,
+  statCardAccent: {
+    flex: 1,
+    backgroundColor: C.teal,
+    borderRadius: 18,
+    padding: 16,
+    ...accentShadow,
   },
-  cardValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  statDelta: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    color: C.gain,
+    marginTop: 6,
   },
-  cardUnit: {
-    fontSize: 18,
-    marginLeft: 4,
+  statLabelLight: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  primaryValue: {
-    color: COLORS.primary,
-  },
-  successValue: {
-    color: COLORS.success,
-  },
-  warningValue: {
-    color: COLORS.warning,
-  },
-  errorValue: {
-    color: COLORS.error,
+  statDeltaLight: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 6,
   },
   blocksContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
+    paddingHorizontal: 24,
+    gap: 12,
   },
-  blockCard: {
-    marginBottom: 16,
+  blockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   blockLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: COLORS.secondary,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  successFill: {
-    backgroundColor: COLORS.success,
-  },
-  warningFill: {
-    backgroundColor: COLORS.warning,
-  },
-  errorFill: {
-    backgroundColor: COLORS.error,
-  },
-  blockRate: {
+    fontFamily: 'DMSans_500Medium',
     fontSize: 12,
-    color: COLORS.textLight,
-    fontWeight: '600',
+    color: C.textMuted,
+    width: 70,
+  },
+  barBg: {
+    flex: 1,
+    height: 5,
+    backgroundColor: C.border,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: C.teal,
+  },
+  barPct: {
+    fontFamily: 'DMMono_400Regular',
+    fontSize: 11,
+    color: C.textMuted,
+    width: 32,
     textAlign: 'right',
   },
-  insightBox: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-    elevation: 2,
+  insightsContainer: {
+    paddingHorizontal: 24,
+    gap: 8,
+    marginBottom: 28,
   },
+  insightCard: {
+    backgroundColor: C.elevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 13,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...cardShadow,
+  },
+  insightIcon: { fontSize: 13 },
+  iconPositive: { color: C.teal },
+  iconNeutral: { color: C.amber },
   insightText: {
-    fontSize: 14,
-    color: COLORS.text,
-    lineHeight: 20,
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12,
+    color: C.textMuted,
+    lineHeight: 18,
+    flex: 1,
   },
 });
 

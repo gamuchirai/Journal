@@ -1,18 +1,19 @@
-import React from 'react';
+﻿import React from 'react';
+import { Grid2x2, LayoutDashboard, List, ClipboardList, Plus, X } from 'lucide-react-native';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList, TabParamList } from '../types';
-import { COLORS } from '../constants';
+import { C } from '../constants/Colors';
+import { amberShadow } from '../constants/Styles';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import TradeListScreen from '../screens/TradeListScreen';
 import CreateEditTradeScreen from '../screens/CreateEditTradeScreen';
 import TradeDetailScreen from '../screens/TradeDetailScreen';
 
-// ── DIAGNOSTIC LOGS ──────────────────────────────────────────────────────────
 console.log('[NAV] Platform.OS:', Platform.OS);
 console.log('[NAV] Screens:', {
   DashboardScreen: typeof DashboardScreen,
@@ -20,17 +21,58 @@ console.log('[NAV] Screens:', {
   CreateEditTradeScreen: typeof CreateEditTradeScreen,
   TradeDetailScreen: typeof TradeDetailScreen,
 });
-// ──────────────────────────────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
+
+type TabName = 'Dashboard' | 'Trades';
+
+const LGrid2x2 = Grid2x2 as React.ComponentType<any>;
+const LLayoutDashboard = LayoutDashboard as React.ComponentType<any>;
+const LList = List as React.ComponentType<any>;
+const LClipboardList = ClipboardList as React.ComponentType<any>;
+const LPlus = Plus as React.ComponentType<any>;
+const LX = X as React.ComponentType<any>;
+
+const tabMeta: Array<{
+  name: TabName;
+  label: string;
+  icon: React.ComponentType<any>;
+  focusedIcon: React.ComponentType<any>;
+}> = [
+  { name: 'Dashboard', label: 'Dashboard', icon: LGrid2x2, focusedIcon: LLayoutDashboard },
+  { name: 'Trades', label: 'Trades', icon: LList, focusedIcon: LClipboardList },
+];
+
+const TabIcon = ({
+  Icon,
+  FocusedIcon,
+  focused,
+}: {
+  Icon: React.ComponentType<any>;
+  FocusedIcon: React.ComponentType<any>;
+  focused: boolean;
+}) => {
+  const ActiveIcon = focused ? FocusedIcon : Icon;
+  return (
+    <View style={styles.tabIconWrap}>
+      <ActiveIcon
+        size={18}
+        stroke={focused ? C.teal : C.textDim}
+        fill={focused ? C.teal : 'none'}
+        strokeWidth={2.2}
+        style={styles.tabIcon}
+      />
+    </View>
+  );
+};
 
 console.log('[NAV] Tab.Navigator type (real):', typeof Tab.Navigator);
 console.log('[NAV] Tab.Screen type (real):', typeof Tab.Screen);
 
 // For web, use a simple state-based tab navigation
 const WebTabNavigator = () => {
-  const [activeTab, setActiveTab] = React.useState<'Dashboard' | 'Trades'>('Dashboard');
+  const [activeTab, setActiveTab] = React.useState<TabName>('Dashboard');
   const [modals, setModals] = React.useState<{ CreateEditTrade?: boolean; TradeDetail?: { tradeId: string } }>({});
   const insets = useSafeAreaInsets();
   
@@ -65,8 +107,8 @@ const WebTabNavigator = () => {
   };
   
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-      {/* Content - conditionally render screens */}
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      {/* Content */}
       <View style={{ flex: 1 }}>
         {activeTab === 'Dashboard' ? (
           <DashboardScreen 
@@ -95,7 +137,7 @@ const WebTabNavigator = () => {
           zIndex: 1000,
         } as any}>
           <View style={{ 
-            backgroundColor: COLORS.background, 
+            backgroundColor: C.bg, 
             maxHeight: '90%',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
@@ -109,16 +151,18 @@ const WebTabNavigator = () => {
               paddingHorizontal: 16,
               paddingVertical: 12,
               borderBottomWidth: 1,
-              borderBottomColor: COLORS.border,
+              borderBottomColor: C.border,
             }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.text }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.text }}>
                 New Trade
               </Text>
               <TouchableOpacity
                 onPress={() => setModals(m => ({ ...m, CreateEditTrade: false }))}
                 style={{ padding: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close new trade modal"
               >
-                <Text style={{ fontSize: 24, color: COLORS.textLight }}>×</Text>
+                <LX size={22} strokeWidth={2.6} style={{ color: C.textMuted }} />
               </TouchableOpacity>
             </View>
             <CreateEditTradeScreen 
@@ -133,11 +177,8 @@ const WebTabNavigator = () => {
       )}
       
       {/* Tab Bar */}
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]} testID="web-tab-bar">
-        {[
-          { name: 'Dashboard' as const, icon: '⊞', label: 'Dashboard' },
-          { name: 'Trades' as const, icon: '☰', label: 'Trades' },
-        ].map((tab) => {
+      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 18) }]} testID="web-tab-bar">
+        {tabMeta.map((tab) => {
           const isFocused = activeTab === tab.name;
           const handleTabPress = () => {
             console.log('[WebTabNavigator] Tab pressed:', tab.name);
@@ -150,9 +191,11 @@ const WebTabNavigator = () => {
               <button
                 key={tab.name}
                 onClick={handleTabPress}
+                aria-label={tab.label}
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingTop: 10,
+                  paddingBottom: 18,
                   paddingHorizontal: 12,
                   backgroundColor: 'transparent',
                   border: 'none',
@@ -164,12 +207,15 @@ const WebTabNavigator = () => {
                   opacity: isFocused ? 1 : 0.6,
                 } as any}
               >
-                <div style={{ fontSize: 20, marginBottom: 4 }}>
-                  {tab.icon}
+                <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+                  <TabIcon Icon={tab.icon} FocusedIcon={tab.focusedIcon} focused={isFocused} />
                 </div>
                 <div style={{ 
-                  fontSize: 12, 
-                  color: isFocused ? COLORS.primary : COLORS.textLight 
+                  fontSize: 12,
+                  fontFamily: 'DMSans_600SemiBold, sans-serif',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: isFocused ? C.teal : C.textDim
                 }}>
                   {tab.label}
                 </div>
@@ -184,10 +230,10 @@ const WebTabNavigator = () => {
               style={styles.tab}
               onPress={handleTabPress}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={tab.label}
             >
-              <Text style={[styles.tabIcon, isFocused && styles.tabIconActive]}>
-                {tab.icon}
-              </Text>
+              <TabIcon Icon={tab.icon} FocusedIcon={tab.focusedIcon} focused={isFocused} />
               <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
                 {tab.label}
               </Text>
@@ -198,30 +244,31 @@ const WebTabNavigator = () => {
           {Platform.OS === 'web' ? (
             <button
               onClick={handleAddTrade}
+              aria-label="Add trade"
               style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: COLORS.primary,
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                backgroundColor: C.amber,
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                fontSize: 28,
-                color: COLORS.white,
-                fontWeight: 'bold',
+                boxShadow: '0 4px 8px rgba(243,149,48,0.32)',
               } as any}
             >
-              +
+              <LPlus size={28} strokeWidth={2.6} style={{ color: '#ffffff' }} />
             </button>
           ) : (
             <TouchableOpacity 
               style={styles.fab} 
               onPress={handleAddTrade} 
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Add trade"
             >
-              <Text style={styles.fabText}>+</Text>
+              <LPlus size={28} strokeWidth={2.6} style={{ color: '#ffffff' }} />
             </TouchableOpacity>
           )}
         </View>
@@ -237,13 +284,9 @@ const CustomTabBar = ({ state, navigation }: BottomTabBarProps) => {
     console.log('[CustomTabBar] handleAddTrade called');
     navigation.getParent()?.navigate('CreateEditTrade', {}); 
   };
-  const tabs = [
-    { name: 'Dashboard' as const, icon: '⊞', label: 'Dashboard' },
-    { name: 'Trades' as const, icon: '☰', label: 'Trades' },
-  ];
   return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      {tabs.map((tab, index) => {
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 18) }]}>
+      {tabMeta.map((tab, index) => {
         const isFocused = state.index === index;
         return (
           <TouchableOpacity key={tab.name} style={styles.tab}
@@ -252,15 +295,23 @@ const CustomTabBar = ({ state, navigation }: BottomTabBarProps) => {
               if (!isFocused) navigation.navigate(tab.name); 
             }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={tab.label}
           >
-            <Text style={[styles.tabIcon, isFocused && styles.tabIconActive]}>{tab.icon}</Text>
+              <TabIcon Icon={tab.icon} FocusedIcon={tab.focusedIcon} focused={isFocused} />
             <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>{tab.label}</Text>
           </TouchableOpacity>
         );
       })}
       <View style={styles.fabWrapper}>
-        <TouchableOpacity style={styles.fab} onPress={handleAddTrade} activeOpacity={0.85}>
-          <Text style={styles.fabText}>+</Text>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleAddTrade}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Add trade"
+        >
+          <LPlus size={28} strokeWidth={2.6} style={{ color: '#ffffff' }} />
         </TouchableOpacity>
       </View>
     </View>
@@ -322,10 +373,10 @@ export const RootNavigator = () => {
     >
       <Stack.Navigator
         screenOptions={{
-          headerStyle: { backgroundColor: COLORS.primary },
-          headerTintColor: COLORS.white,
-          headerTitleStyle: { fontWeight: 'bold', fontSize: 18 },
-          contentStyle: { backgroundColor: COLORS.background },
+          headerStyle: { backgroundColor: C.teal },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { fontFamily: 'DMSans_600SemiBold', fontSize: 16 },
+          contentStyle: { backgroundColor: C.bg },
         }}
       >
         <Stack.Screen 
@@ -352,13 +403,28 @@ export const RootNavigator = () => {
 };
 
 const styles = StyleSheet.create({
-  tabBar: { flexDirection: 'row', backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8, position: 'relative' },
-  tab: { flex: 1, alignItems: 'center', paddingBottom: 4 },
-  tabIcon: { fontSize: 22, color: COLORS.textLight, marginBottom: 2 },
-  tabIconActive: { color: COLORS.primary },
-  tabLabel: { fontSize: 10, color: COLORS.textLight, fontWeight: '600' },
-  tabLabelActive: { color: COLORS.primary },
-  fabWrapper: { position: 'absolute', top: -24, left: '50%', transform: [{ translateX: -28 }], zIndex: 10 },
-  fab: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center', elevation: 6 },
-  fabText: { fontSize: 32, color: COLORS.white, fontWeight: 'bold', lineHeight: 36 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: C.elevated,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: 10,
+    height: 96,
+    paddingBottom: 18,
+    position: 'relative',
+  },
+  tab: { flex: 1, alignItems: 'center', paddingBottom: 10 },
+  tabIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    marginBottom: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIcon: {},
+  tabLabel: { fontFamily: 'DMSans_600SemiBold', fontSize: 9, letterSpacing: 0.7, textTransform: 'uppercase', color: C.textDim },
+  tabLabelActive: { color: C.teal },
+  fabWrapper: { position: 'absolute', top: -20, left: '50%', transform: [{ translateX: -26 }], zIndex: 10 },
+  fab: { width: 52, height: 52, borderRadius: 16, backgroundColor: C.amber, justifyContent: 'center', alignItems: 'center', ...amberShadow },
 });

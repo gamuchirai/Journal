@@ -5,6 +5,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from './src/database';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { COLORS } from './src/constants';
+import { C } from './src/constants/Colors';
+import {
+  useFonts,
+  Fraunces_300Light,
+} from '@expo-google-fonts/fraunces';
+import {
+  DMSans_300Light,
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
+import {
+  DMMono_400Regular,
+  DMMono_500Medium,
+} from '@expo-google-fonts/dm-mono';
 
 // Error boundary component for better error visualization
 class ErrorBoundary extends React.Component<
@@ -52,6 +68,16 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Fraunces_300Light,
+    DMSans_300Light,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
+    DMMono_400Regular,
+    DMMono_500Medium,
+  });
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<any>(null);
@@ -162,18 +188,12 @@ export default function App() {
     );
   }
 
-  if (!isReady) {
+  if (!isReady || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9f9f9', paddingHorizontal: 20 }}>
-        <Text style={{ marginBottom: 20, fontSize: 14, color: '#333', fontWeight: '600' }}>
-          🚀 Initializing TradeFlow...
-        </Text>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ marginTop: 20, fontSize: 12, color: '#666', textAlign: 'center' }}>
-          Setting up database and loading app
-        </Text>
-        <Text style={{ marginTop: 10, fontSize: 10, color: '#999' }}>
-          Platform: {Platform.OS}
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg, paddingHorizontal: 20 }}>
+        <ActivityIndicator size="large" color={C.teal} />
+        <Text style={{ marginTop: 16, fontSize: 12, color: C.textMuted, textAlign: 'center' }}>
+          Loading TradeFlow...
         </Text>
       </View>
     );

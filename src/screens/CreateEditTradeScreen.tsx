@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,23 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
+import {
+  BarChart3,
+  BookOpen,
+  Camera,
+  Check,
+  ChevronDown,
+  LocateFixed,
+  X,
+} from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList, Trade, BiasData, NarrativeData, EntryData, Direction } from '../types';
-import { COLORS, FOREX_PAIRS, TIMEFRAMES, PD_ARRAYS, CONTEXT_AREAS, ENTRY_PATTERNS, DIRECTIONS, DEFAULT_CONTEXTS } from '../constants';
+import { FOREX_PAIRS, TIMEFRAMES, PD_ARRAYS, CONTEXT_AREAS, ENTRY_PATTERNS, DIRECTIONS, DEFAULT_CONTEXTS } from '../constants';
+import { C } from '../constants/Colors';
+import { T, S, cardShadow, amberShadow } from '../constants/Styles';
 import { useTradeStore } from '../store';
 import { processAndSaveImage, deleteTradeImages } from '../utils/imageUtils';
 import * as db from '../database';
@@ -58,6 +69,27 @@ type SelectField =
   | 'narrativeTimeframe'
   | 'entryPattern'
   | 'entryTimeframe';
+
+const SectionTitle = ({
+  Icon,
+  label,
+}: {
+  Icon: React.ComponentType<any>;
+  label: string;
+}) => (
+  <View style={styles.sectionLabelRow}>
+    <Icon size={14} strokeWidth={2.2} style={{ color: C.teal }} />
+    <Text style={styles.sectionLabel}>{label}</Text>
+  </View>
+);
+
+const LBarChart3 = BarChart3 as React.ComponentType<any>;
+const LBookOpen = BookOpen as React.ComponentType<any>;
+const LCamera = Camera as React.ComponentType<any>;
+const LCheck = Check as React.ComponentType<any>;
+const LChevronDown = ChevronDown as React.ComponentType<any>;
+const LLocateFixed = LocateFixed as React.ComponentType<any>;
+const LX = X as React.ComponentType<any>;
 
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
@@ -310,23 +342,26 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
 
   if (loadingTrade || !preferences) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={C.teal} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
       >
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Market Select */}
         <View style={styles.section}>
           <Text style={styles.label}>Market</Text>
@@ -347,7 +382,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                 }
               >
                 <Text style={styles.selectBoxText}>{value || 'Choose market'}</Text>
-                <Text style={styles.selectBoxChevron}>▼</Text>
+                <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
               </TouchableOpacity>
             )}
           />
@@ -358,7 +393,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         {/* ===== BIAS SECTION ===== */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>📊 Bias</Text>
+            <SectionTitle Icon={LBarChart3} label="Bias" />
             <Controller
               control={control}
               name="biasPlayedOut"
@@ -370,13 +405,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                       style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
                       onPress={() => onChange(value === true ? null : true)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                      <LCheck size={14} strokeWidth={2.8} style={{ color: value === true ? C.text : C.textDim }} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
                       onPress={() => onChange(value === false ? null : false)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                      <LX size={14} strokeWidth={2.8} style={{ color: value === false ? C.text : C.textDim }} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -427,7 +462,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('biasPdArray', 'Select Bias PD Array', PD_ARRAYS)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -443,7 +478,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('biasTimeframe', 'Select Bias Timeframe', TIMEFRAMES)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -454,7 +489,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         {/* ===== NARRATIVE SECTION ===== */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>📖 Narrative</Text>
+            <SectionTitle Icon={LBookOpen} label="Narrative" />
             <Controller
               control={control}
               name="narrativePlayedOut"
@@ -466,13 +501,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                       style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
                       onPress={() => onChange(value === true ? null : true)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                      <LCheck size={14} strokeWidth={2.8} style={{ color: value === true ? C.text : C.textDim }} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
                       onPress={() => onChange(value === false ? null : false)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                      <LX size={14} strokeWidth={2.8} style={{ color: value === false ? C.text : C.textDim }} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -525,7 +560,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('narrativePdArray', 'Select Narrative PD Array', PD_ARRAYS)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -541,7 +576,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('narrativeTimeframe', 'Select Narrative Timeframe', TIMEFRAMES)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -552,7 +587,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         {/* ===== ENTRY SECTION ===== */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>🎯 Entry</Text>
+            <SectionTitle Icon={LLocateFixed} label="Entry" />
             <Controller
               control={control}
               name="entryPlayedOut"
@@ -564,13 +599,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                       style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
                       onPress={() => onChange(value === true ? null : true)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === true && styles.playedOutBtnTextActive]}>✓</Text>
+                      <LCheck size={14} strokeWidth={2.8} style={{ color: value === true ? C.text : C.textDim }} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
                       onPress={() => onChange(value === false ? null : false)}
                     >
-                      <Text style={[styles.playedOutBtnText, value === false && styles.playedOutBtnTextActive]}>✕</Text>
+                      <LX size={14} strokeWidth={2.8} style={{ color: value === false ? C.text : C.textDim }} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -591,7 +626,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('entryPattern', 'Select Entry Pattern', ENTRY_PATTERNS)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -607,7 +642,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                     onPress={() => openSelect('entryTimeframe', 'Select Entry Timeframe', TIMEFRAMES)}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
-                    <Text style={styles.selectBoxChevron}>▼</Text>
+                    <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
                   </TouchableOpacity>
                 )}
               />
@@ -625,7 +660,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               <TextInput
                 style={styles.input}
                 placeholder="Stop Loss..."
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={C.textMuted}
                 value={value}
                 onChangeText={onChange}
                 keyboardType="decimal-pad"
@@ -639,7 +674,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               <TextInput
                 style={[styles.input, styles.marginTop]}
                 placeholder="Target..."
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={C.textMuted}
                 value={value}
                 onChangeText={onChange}
                 keyboardType="decimal-pad"
@@ -658,12 +693,15 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                 style={styles.removeImageButton}
                 onPress={handleRemoveImage}
               >
-                <Text style={styles.removeImageText}>✕</Text>
+                <LX size={16} strokeWidth={2.8} style={{ color: '#ffffff' }} />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={styles.uploadButton} onPress={handlePickImage}>
-              <Text style={styles.uploadButtonText}>📷 Add Chart Screenshot</Text>
+              <View style={styles.uploadButtonRow}>
+                <LCamera size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
+                <Text style={styles.uploadButtonText}>Add Chart Screenshot</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -675,47 +713,48 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={C.elevated} />
           ) : (
             <Text style={styles.saveButtonText}>Save Trade</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal
-        visible={!!activeSelect?.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSelect}
-      >
-        <View style={styles.selectModalOverlay}>
-          <View style={styles.selectModalCard}>
-            <Text style={styles.selectModalTitle}>{activeSelect?.title || 'Select Option'}</Text>
-            <ScrollView style={styles.selectModalList}>
-              {(activeSelect?.options || []).map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={styles.selectModalOption}
-                  onPress={() => handleSelectOption(option)}
-                >
-                  <Text style={styles.selectModalOptionText}>{option}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.selectModalClose} onPress={closeSelect}>
-              <Text style={styles.selectModalCloseText}>Cancel</Text>
-            </TouchableOpacity>
+        <Modal
+          visible={!!activeSelect?.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeSelect}
+        >
+          <View style={styles.selectModalOverlay}>
+            <View style={styles.selectModalCard}>
+              <Text style={styles.selectModalTitle}>{activeSelect?.title || 'Select Option'}</Text>
+              <ScrollView style={styles.selectModalList}>
+                {(activeSelect?.options || []).map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.selectModalOption}
+                    onPress={() => handleSelectOption(option)}
+                  >
+                    <Text style={styles.selectModalOptionText}>{option}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={styles.selectModalClose} onPress={closeSelect}>
+                <Text style={styles.selectModalCloseText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </KeyboardAvoidingView>
+        </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.bg,
   },
   content: {
     flex: 1,
@@ -729,17 +768,14 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  // New Section Card Style for Building Blocks
   sectionCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    backgroundColor: C.elevated,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
     padding: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...cardShadow,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -748,124 +784,146 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: C.teal,
   },
   subLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textLight,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    color: C.textMuted,
     marginBottom: 6,
+    letterSpacing: 0.3,
   },
-  // Played Out Toggle Styles
   playedOutToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   playedOutLabel: {
+    fontFamily: 'DMSans_400Regular',
     fontSize: 11,
-    color: COLORS.textLight,
+    color: C.textDim,
   },
   playedOutButtons: {
     flexDirection: 'row',
     gap: 4,
   },
   playedOutBtn: {
-    width: 28,
+    width: 32,
     height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.secondary,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   playedOutBtnYes: {
-    backgroundColor: COLORS.success,
+    borderColor: 'rgba(26,138,106,0.3)',
+    backgroundColor: C.gainDim,
   },
   playedOutBtnNo: {
-    backgroundColor: COLORS.error,
+    borderColor: 'rgba(192,66,74,0.3)',
+    backgroundColor: C.lossDim,
   },
   playedOutBtnText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.textLight,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+    color: C.textDim,
   },
   playedOutBtnTextActive: {
-    color: COLORS.white,
+    color: C.text,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    color: C.teal,
     marginBottom: 8,
   },
   selectBox: {
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
+    backgroundColor: C.bg,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   selectBoxText: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: '600',
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: C.text,
   },
   selectBoxChevron: {
+    fontFamily: 'DMSans_500Medium',
     fontSize: 11,
-    color: COLORS.textLight,
+    color: C.textMuted,
   },
   selectModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(13,46,56,0.45)',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
   selectModalCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    backgroundColor: C.elevated,
+    borderRadius: 20,
     maxHeight: '70%',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
   },
   selectModalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    fontFamily: 'Fraunces_300Light',
+    fontSize: 18,
+    fontWeight: '300',
+    color: C.teal,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
   },
   selectModalList: {
     maxHeight: 320,
   },
   selectModalOption: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.borderLight,
   },
   selectModalOptionText: {
+    fontFamily: 'DMSans_400Regular',
     fontSize: 14,
-    color: COLORS.text,
+    color: C.text,
   },
   selectModalClose: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.surface,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
   },
   selectModalCloseText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 13,
+    letterSpacing: 0.3,
+    color: C.textMuted,
   },
   selectRow: {
     flexDirection: 'row',
@@ -880,27 +938,32 @@ const styles = StyleSheet.create({
   pickerOption: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
     marginRight: 8,
   },
   pickerOptionSmall: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: COLORS.secondary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
     marginRight: 6,
   },
   pickerOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.teal,
+    borderColor: C.teal,
   },
   pickerOptionText: {
-    color: COLORS.text,
+    fontFamily: 'DMSans_500Medium',
+    color: C.textMuted,
     fontSize: 12,
-    fontWeight: '600',
   },
   pickerOptionTextActive: {
-    color: COLORS.white,
+    color: '#ffffff',
   },
   buttonGroupContainer: {
     flexDirection: 'row',
@@ -909,45 +972,49 @@ const styles = StyleSheet.create({
   buttonGroup: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
     alignItems: 'center',
   },
   buttonGroupActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.teal,
+    borderColor: C.teal,
   },
   buttonGroupText: {
-    color: COLORS.text,
-    fontWeight: '600',
+    fontFamily: 'DMSans_600SemiBold',
+    color: C.textMuted,
     fontSize: 12,
   },
   buttonGroupTextActive: {
-    color: COLORS.white,
+    color: '#ffffff',
   },
   input: {
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
+    backgroundColor: C.bg,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     marginTop: 4,
-    fontSize: 14,
-    color: COLORS.text,
+    fontFamily: 'DMMono_400Regular',
+    fontSize: 13,
+    color: C.text,
   },
   marginTop: {
     marginTop: 8,
   },
   imageContainer: {
     position: 'relative',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
-    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    backgroundColor: C.surface,
   },
   removeImageButton: {
     position: 'absolute',
@@ -955,42 +1022,49 @@ const styles = StyleSheet.create({
     right: 8,
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    backgroundColor: C.loss,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeImageText: {
-    color: COLORS.white,
-    fontSize: 18,
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   uploadButton: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
     borderStyle: 'dashed',
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: C.border,
+  },
+  uploadButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   uploadButtonText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-    fontSize: 14,
+    fontFamily: 'DMSans_500Medium',
+    color: C.textMuted,
+    fontSize: 13,
   },
   saveButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 8,
+    backgroundColor: C.amber,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 32,
+    ...amberShadow,
   },
   saveButtonText: {
-    color: COLORS.white,
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontFamily: 'DMSans_700Bold',
+    color: '#ffffff',
+    fontSize: 15,
+    letterSpacing: 0.2,
   },
 });
 
