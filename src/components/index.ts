@@ -1,4 +1,5 @@
 export { default as BuildingBlockCard } from './BuildingBlockCard';
+export { default as MarketSearchInput } from './MarketSearchInput';
 export { default as OutcomeBlock } from './OutcomeBlock';
 export { default as PlayedOutIndicator } from './PlayedOutIndicator';
 export { default as ScreenLoadingState } from './ScreenLoadingState';

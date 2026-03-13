@@ -21,6 +21,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  Image as ImageIcon,
   LocateFixed,
   ShieldCheck,
   X,
@@ -37,7 +38,7 @@ import {
   logImageUriDebug,
   normalizeImageUri,
 } from '../utils/imageUtils';
-import { SectionTitle, ScreenLoadingState, SelectPickerModal } from '../components';
+import { SectionTitle, ScreenLoadingState, SelectPickerModal, MarketSearchInput } from '../components';
 import { calculateRiskRewardRatio } from '../utils/riskUtils';
 import * as db from '../database';
 import {
@@ -94,6 +95,7 @@ const LChevronDown = ChevronDown as React.ComponentType<any>;
 const LLocateFixed = LocateFixed as React.ComponentType<any>;
 const LShieldCheck = ShieldCheck as React.ComponentType<any>;
 const LX = X as React.ComponentType<any>;
+const LImageIcon = ImageIcon as React.ComponentType<any>;
 
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
@@ -201,18 +203,18 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               biasDirection: typeof bias === 'object' ? bias.direction : 'Long',
               biasPdArray: typeof bias === 'object' ? bias.pdArray : '',
               biasTimeframe: typeof bias === 'object' ? bias.timeframe : '',
-              biasPlayedOut: typeof bias === 'object' ? bias.playedOut : null,
+              biasPlayedOut: typeof bias === 'object' ? (bias.playedOut ?? null) : null,
               // Narrative fields
               narrativeContextArea: typeof narrative === 'object' ? narrative.contextArea : '',
               narrativePdArray: typeof narrative === 'object' ? narrative.pdArray : '',
               narrativeTimeframe: typeof narrative === 'object' ? narrative.timeframe : '',
-              narrativePlayedOut: typeof narrative === 'object' ? narrative.playedOut : null,
-              contextHeld: existingTrade.outcomes.contextHeld,
+              narrativePlayedOut: typeof narrative === 'object' ? (narrative.playedOut ?? null) : null,
+              contextHeld: existingTrade.outcomes.contextHeld ?? null,
               // Entry fields
               entryPattern: typeof entry === 'object' ? entry.entryPattern : '',
               entryTimeframe: typeof entry === 'object' ? entry.timeframe : '',
-              entryPlayedOut: typeof entry === 'object' ? entry.playedOut : null,
-              riskManaged: existingTrade.outcomes.riskManaged,
+              entryPlayedOut: typeof entry === 'object' ? (entry.playedOut ?? null) : null,
+              riskManaged: existingTrade.outcomes.riskManaged ?? null,
               // Risk
               stop: existingTrade.risk.stop,
               target: existingTrade.risk.target,
@@ -389,11 +391,11 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
 
       const currentStatus = trade?.status || 'active';
       const allMetricsFilled =
-        data.biasPlayedOut !== null &&
-        data.narrativePlayedOut !== null &&
-        data.contextHeld !== null &&
-        data.entryPlayedOut !== null &&
-        data.riskManaged !== null;
+        data.biasPlayedOut != null &&
+        data.narrativePlayedOut != null &&
+        data.contextHeld != null &&
+        data.entryPlayedOut != null &&
+        data.riskManaged != null;
       const nextStatus = allMetricsFilled ? 'closed' : 'active';
       
       const newTrade: Trade = {
@@ -456,28 +458,24 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           keyboardShouldPersistTaps="handled"
         >
         {/* Market Select */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Market</Text>
+        <View style={[styles.sectionCard, { zIndex: 10 }]}>
+          <View style={styles.sectionHeader}>
+            <SectionTitle Icon={LBarChart3} label="Market" />
+          </View>
           <Controller
             control={control}
             name="market"
             rules={{ required: 'Select a market before saving.' }}
-            render={({ field: { value } }) => (
-              <TouchableOpacity
-                style={[styles.selectBox, errors.market && styles.selectBoxError]}
-                onPress={() =>
-                  openSelect(
-                    'market',
-                    'Select Market',
-                    [...preferences.recentMarkets, ...FOREX_PAIRS]
-                      .filter((m, i, arr) => arr.indexOf(m) === i)
-                      .slice(0, 20)
-                  )
-                }
-              >
-                <Text style={styles.selectBoxText}>{value || 'Choose market'}</Text>
-                <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
-              </TouchableOpacity>
+            render={({ field: { value, onChange } }) => (
+              <MarketSearchInput
+                value={value}
+                onChange={onChange}
+                suggestions={[
+                  ...preferences.recentMarkets,
+                  ...FOREX_PAIRS,
+                ].filter((m: string, i: number, arr: string[]) => arr.indexOf(m) === i)}
+                hasError={!!errors.market}
+              />
             )}
           />
           {errors.market && <Text style={styles.fieldError}>{errors.market.message}</Text>}
@@ -864,8 +862,10 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         </View>
 
         {/* Screenshot */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Chart Screenshot</Text>
+        <View style={styles.sectionCard}>
+          <View style={[styles.sectionHeader, { marginBottom: screenshotUri ? 12 : 0 }]}>
+            <SectionTitle Icon={LCamera} label="Chart Screenshot" />
+          </View>
           {screenshotUri ? (
             <View style={styles.imageContainer}>
               <Image

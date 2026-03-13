@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -42,11 +42,7 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
 
   const detailImageUri = useTradeImage(trade);
 
-  useEffect(() => {
-    loadTrade();
-  }, [tradeId]);
-
-  const loadTrade = async () => {
+  const loadTrade = useCallback(async () => {
     try {
       const loaded = await db.getTrade(tradeId);
       console.log('[TradeDetailScreen] loadTrade result', {
@@ -63,7 +59,16 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tradeId]);
+
+  useEffect(() => {
+    loadTrade();
+  }, [loadTrade]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadTrade);
+    return unsubscribe;
+  }, [navigation, loadTrade]);
 
   const handleDelete = () => {
     Alert.alert('Delete Trade', 'Are you sure you want to delete this trade?', [

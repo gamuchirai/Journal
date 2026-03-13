@@ -7,7 +7,7 @@ const LCheck = Check as React.ComponentType<any>;
 const LX = X as React.ComponentType<any>;
 
 interface PlayedOutIndicatorProps {
-  value: boolean | null;
+  value: boolean | null | undefined;
 }
 
 /**
@@ -17,7 +17,7 @@ interface PlayedOutIndicatorProps {
 const PlayedOutIndicator = ({ value }: PlayedOutIndicatorProps) => (
   <View style={styles.container}>
     <Text style={styles.label}>Played Out</Text>
-    {value === null ? (
+    {value == null ? (
       <View style={styles.badgeNeutral}>
         <Text style={styles.badgeText}>-</Text>
       </View>
