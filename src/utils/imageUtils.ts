@@ -5,17 +5,81 @@ import * as FileSystem from 'expo-file-system/legacy';
 const THUMBNAIL_WIDTH = 300;
 const THUMBNAIL_HEIGHT = 300;
 
-// Get image cache directory path
-const getImageCacheDir = () => {
-  if (!FileSystem.cacheDirectory) {
-    throw new Error('Cache directory not available');
+export const normalizeImageUri = (uri: string | null | undefined): string | null => {
+  if (!uri) return null;
+
+  const trimmed = uri.trim();
+  if (!trimmed) return null;
+
+  if (
+    trimmed.startsWith('file://') ||
+    trimmed.startsWith('content://') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:')
+  ) {
+    return trimmed;
   }
-  return `${FileSystem.cacheDirectory}trade_images/`;
+
+  if (trimmed.startsWith('/')) {
+    return `file://${trimmed}`;
+  }
+
+  if (trimmed.startsWith('file:/')) {
+    return `file:///${trimmed.replace(/^file:\/+/, '')}`;
+  }
+
+  return trimmed;
+};
+
+export const logImageUriDebug = async (label: string, uri: string | null | undefined) => {
+  const normalized = normalizeImageUri(uri);
+  if (!normalized) {
+    console.log(`[imageUtils] ${label}: uri is empty`);
+    return;
+  }
+
+  try {
+    if (normalized.startsWith('file://')) {
+      const info = await FileSystem.getInfoAsync(normalized);
+      console.log('[imageUtils] URI debug', {
+        label,
+        originalUri: uri,
+        normalizedUri: normalized,
+        exists: info.exists,
+        size: 'size' in info ? info.size : undefined,
+      });
+      return;
+    }
+
+    console.log('[imageUtils] URI debug', {
+      label,
+      originalUri: uri,
+      normalizedUri: normalized,
+      exists: 'skipped (non-file URI)',
+    });
+  } catch (error) {
+    console.error(`[imageUtils] Failed URI debug for ${label}:`, error);
+  }
+};
+
+// Get persistent image directory path
+const getImageStorageDir = () => {
+  if (FileSystem.documentDirectory) {
+    return `${FileSystem.documentDirectory}trade_images/`;
+  }
+
+  if (FileSystem.cacheDirectory) {
+    console.warn('[imageUtils] documentDirectory unavailable, falling back to cacheDirectory');
+    return `${FileSystem.cacheDirectory}trade_images/`;
+  }
+
+  throw new Error('No writable file-system directory available');
 };
 
 // Ensure cache directory exists
 export const ensureImageCacheDir = async () => {
-  const dirPath = getImageCacheDir();
+  const dirPath = getImageStorageDir();
   const dirInfo = await FileSystem.getInfoAsync(dirPath);
   if (!dirInfo.exists) {
     await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
@@ -31,6 +95,7 @@ export const generateImageFilename = (prefix: string = 'trade'): string => {
 export const compressImage = async (imageUri: string): Promise<string> => {
   try {
     await ensureImageCacheDir();
+    console.log('[imageUtils] compressImage source:', imageUri);
 
     const filename = generateImageFilename('full');
     const result = await ImageManipulator.manipulateAsync(
@@ -42,11 +107,13 @@ export const compressImage = async (imageUri: string): Promise<string> => {
       }
     );
 
-    const destinationUri = `${getImageCacheDir()}${filename}.jpg`;
+    const destinationUri = `${getImageStorageDir()}${filename}.jpg`;
     await FileSystem.copyAsync({
       from: result.uri,
       to: destinationUri,
     });
+
+    await logImageUriDebug('compressImage.destinationUri', destinationUri);
 
     return destinationUri;
   } catch (error) {
@@ -59,6 +126,7 @@ export const compressImage = async (imageUri: string): Promise<string> => {
 export const createThumbnail = async (imageUri: string): Promise<string> => {
   try {
     await ensureImageCacheDir();
+    console.log('[imageUtils] createThumbnail source:', imageUri);
 
     const filename = generateImageFilename('thumb');
     const result = await ImageManipulator.manipulateAsync(
@@ -77,11 +145,13 @@ export const createThumbnail = async (imageUri: string): Promise<string> => {
       }
     );
 
-    const destinationUri = `${getImageCacheDir()}${filename}.jpg`;
+    const destinationUri = `${getImageStorageDir()}${filename}.jpg`;
     await FileSystem.copyAsync({
       from: result.uri,
       to: destinationUri,
     });
+
+    await logImageUriDebug('createThumbnail.destinationUri', destinationUri);
 
     return destinationUri;
   } catch (error) {
@@ -93,10 +163,16 @@ export const createThumbnail = async (imageUri: string): Promise<string> => {
 // Process and save image (both full and thumbnail)
 export const processAndSaveImage = async (imageUri: string) => {
   try {
+    console.log('[imageUtils] processAndSaveImage input:', imageUri);
     const [fullUri, thumbnailUri] = await Promise.all([
       compressImage(imageUri),
       createThumbnail(imageUri),
     ]);
+
+    console.log('[imageUtils] processAndSaveImage output:', {
+      fullUri,
+      thumbnailUri,
+    });
 
     return { fullUri, thumbnailUri };
   } catch (error) {
@@ -129,4 +205,33 @@ export const deleteTradeImages = async (
   if (deletePromises.length > 0) {
     await Promise.all(deletePromises);
   }
+};
+
+const fileUriExists = async (uri: string) => {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    return info.exists;
+  } catch {
+    return false;
+  }
+};
+
+export const resolveExistingImageUri = async (
+  ...uris: Array<string | null | undefined>
+): Promise<string | null> => {
+  for (const uri of uris) {
+    const normalized = normalizeImageUri(uri);
+    if (!normalized) continue;
+
+    if (!normalized.startsWith('file://')) {
+      return normalized;
+    }
+
+    const exists = await fileUriExists(normalized);
+    if (exists) {
+      return normalized;
+    }
+  }
+
+  return null;
 };

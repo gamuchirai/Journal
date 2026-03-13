@@ -239,6 +239,10 @@ export const createTrade = async (trade: Trade) => {
   const now = Date.now();
   const id = trade.id || `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
   console.log('Trade ID:', id);
+  console.log('[DB] createTrade image fields', {
+    screenshotUri: trade.screenshotUri,
+    thumbnailUri: trade.thumbnailUri,
+  });
 
   // Serialize structured data to JSON strings
   const biasJson = typeof trade.bias === 'object' ? JSON.stringify(trade.bias) : trade.bias;
@@ -309,6 +313,10 @@ export const createTrade = async (trade: Trade) => {
 export const updateTrade = async (trade: Trade) => {
   console.log('=== DB: updateTrade called ===');
   console.log('Trade ID:', trade.id);
+  console.log('[DB] updateTrade image fields', {
+    screenshotUri: trade.screenshotUri,
+    thumbnailUri: trade.thumbnailUri,
+  });
   const now = Date.now();
 
   // Serialize structured data to JSON strings
@@ -652,7 +660,7 @@ const rowToTrade = (row: any): Trade => {
     }
   };
 
-  return {
+  const mappedTrade: Trade = {
     id: row.id,
     date: row.date,
     market: row.market,
@@ -682,4 +690,14 @@ const rowToTrade = (row: any): Trade => {
       whatWentWrong: row.whatWentWrong || null,
     },
   };
+
+  if (mappedTrade.screenshotUri || mappedTrade.thumbnailUri) {
+    console.log('[DB] rowToTrade image fields', {
+      id: mappedTrade.id,
+      screenshotUri: mappedTrade.screenshotUri,
+      thumbnailUri: mappedTrade.thumbnailUri,
+    });
+  }
+
+  return mappedTrade;
 };

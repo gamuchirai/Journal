@@ -17,7 +17,12 @@ import { RootStackParamList, Trade, BiasData, NarrativeData, EntryData } from '.
 import { C } from '../constants/Colors';
 import { cardShadow, amberShadow } from '../constants/Styles';
 import * as db from '../database';
-import { deleteTradeImages } from '../utils/imageUtils';
+import {
+  deleteTradeImages,
+  logImageUriDebug,
+  resolveExistingImageUri,
+} from '../utils/imageUtils';
+import { calculateTradeRiskRewardRatio } from '../utils/riskUtils';
 import { useTradeStore } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TradeDetail'>;
@@ -47,15 +52,53 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
   const [trade, setTrade] = useState<Trade | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [detailImageUri, setDetailImageUri] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     loadTrade();
   }, [tradeId]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveDetailImage = async () => {
+      if (!trade) {
+        if (mounted) setDetailImageUri(null);
+        return;
+      }
+
+      const resolved = await resolveExistingImageUri(trade.screenshotUri, trade.thumbnailUri);
+      console.log('[TradeDetailScreen] resolved detail image URI', {
+        tradeId: trade.id,
+        screenshotUri: trade.screenshotUri,
+        thumbnailUri: trade.thumbnailUri,
+        resolved,
+      });
+
+      if (mounted) {
+        setDetailImageUri(resolved);
+      }
+    };
+
+    resolveDetailImage();
+
+    return () => {
+      mounted = false;
+    };
+  }, [trade]);
+
   const loadTrade = async () => {
     try {
       const loaded = await db.getTrade(tradeId);
+      console.log('[TradeDetailScreen] loadTrade result', {
+        tradeId,
+        found: !!loaded,
+        screenshotUri: loaded?.screenshotUri,
+        thumbnailUri: loaded?.thumbnailUri,
+      });
+      await logImageUriDebug('TradeDetail.screenshotUri', loaded?.screenshotUri);
+      await logImageUriDebug('TradeDetail.thumbnailUri', loaded?.thumbnailUri);
       setTrade(loaded);
     } catch (error) {
       Alert.alert('Error', 'Failed to load trade');
@@ -167,6 +210,8 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
     </View>
   );
 
+  const rrRatio = calculateTradeRiskRewardRatio(trade);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView 
@@ -187,6 +232,9 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{trade.timeframe}</Text>
           </View>
+          <View style={[styles.badge, { backgroundColor: C.tealDim }]}>
+            <Text style={styles.badgeText}>RR {rrRatio || '-'}</Text>
+          </View>
           <View style={[styles.badge, { backgroundColor: C.surface }]}>
             <Text style={styles.badgeText}>{trade.status}</Text>
           </View>
@@ -194,14 +242,36 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
       </View>
 
       {/* Chart Screenshot */}
-      {trade.screenshotUri && (
+      {detailImageUri && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Chart Analysis</Text>
           <TouchableOpacity
             style={styles.imageContainer}
             onPress={() => setImageModalVisible(true)}
           >
-            <Image source={{ uri: trade.screenshotUri }} style={styles.detailImage} />
+            <Image
+              source={{ uri: detailImageUri }}
+              style={styles.detailImage}
+              onLoadStart={() =>
+                console.log('[TradeDetailScreen] detail image onLoadStart', {
+                  tradeId,
+                  detailImageUri,
+                })
+              }
+              onLoad={() =>
+                console.log('[TradeDetailScreen] detail image onLoad', {
+                  tradeId,
+                  detailImageUri,
+                })
+              }
+              onError={(event) =>
+                console.error('[TradeDetailScreen] detail image onError', {
+                  tradeId,
+                  detailImageUri,
+                  error: event.nativeEvent.error,
+                })
+              }
+            />
             <Text style={styles.tapToViewText}>Tap to expand</Text>
           </TouchableOpacity>
         </View>
@@ -302,7 +372,7 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
           </View>
           <View style={styles.riskItem}>
             <Text style={styles.riskLabel}>R:R Ratio</Text>
-            <Text style={styles.riskValue}>{trade.risk.riskReward}</Text>
+            <Text style={styles.riskValue}>{rrRatio || '-'}</Text>
           </View>
         </View>
       </View>
@@ -377,7 +447,19 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
             style={styles.modalOverlay}
             onPress={() => setImageModalVisible(false)}
           >
-            <Image source={{ uri: trade.screenshotUri! }} style={styles.fullImage} />
+            {detailImageUri ? (
+              <Image
+                source={{ uri: detailImageUri }}
+                style={styles.fullImage}
+                onError={(event) =>
+                  console.error('[TradeDetailScreen] modal image onError', {
+                    tradeId,
+                    detailImageUri,
+                    error: event.nativeEvent.error,
+                  })
+                }
+              />
+            ) : null}
           </TouchableOpacity>
         </View>
       </Modal>

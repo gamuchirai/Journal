@@ -31,7 +31,12 @@ import { FOREX_PAIRS, TIMEFRAMES, PD_ARRAYS, CONTEXT_AREAS, ENTRY_PATTERNS, DIRE
 import { C } from '../constants/Colors';
 import { T, S, cardShadow, amberShadow } from '../constants/Styles';
 import { useTradeStore } from '../store';
-import { processAndSaveImage, deleteTradeImages } from '../utils/imageUtils';
+import {
+  processAndSaveImage,
+  deleteTradeImages,
+  logImageUriDebug,
+  normalizeImageUri,
+} from '../utils/imageUtils';
 import * as db from '../database';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateEditTrade'>;
@@ -145,8 +150,19 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           const existingTrade = await db.getTrade(tradeId);
           if (existingTrade) {
             setTrade(existingTrade);
-            setScreenshotUri(existingTrade.screenshotUri);
-            setThumbnailUri(existingTrade.thumbnailUri);
+            const normalizedScreenshot = normalizeImageUri(existingTrade.screenshotUri);
+            const normalizedThumbnail = normalizeImageUri(existingTrade.thumbnailUri);
+            console.log('[CreateEditTradeScreen] loaded existing trade image URIs', {
+              tradeId,
+              screenshotUri: existingTrade.screenshotUri,
+              thumbnailUri: existingTrade.thumbnailUri,
+              normalizedScreenshot,
+              normalizedThumbnail,
+            });
+            await logImageUriDebug('CreateEdit.existing.screenshotUri', existingTrade.screenshotUri);
+            await logImageUriDebug('CreateEdit.existing.thumbnailUri', existingTrade.thumbnailUri);
+            setScreenshotUri(normalizedScreenshot);
+            setThumbnailUri(normalizedThumbnail);
             
             // Handle both new structured format and legacy string format
             const bias = existingTrade.bias as BiasData | string;
@@ -218,9 +234,19 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       });
 
       if (!result.canceled && result.assets[0]) {
+        console.log('[CreateEditTradeScreen] picked image asset', {
+          uri: result.assets[0].uri,
+          width: result.assets[0].width,
+          height: result.assets[0].height,
+          fileName: result.assets[0].fileName,
+        });
         const processedImages = await processAndSaveImage(result.assets[0].uri);
-        setScreenshotUri(processedImages.fullUri);
-        setThumbnailUri(processedImages.thumbnailUri);
+        const normalizedFull = normalizeImageUri(processedImages.fullUri);
+        const normalizedThumb = normalizeImageUri(processedImages.thumbnailUri);
+        await logImageUriDebug('CreateEdit.processed.fullUri', normalizedFull);
+        await logImageUriDebug('CreateEdit.processed.thumbnailUri', normalizedThumb);
+        setScreenshotUri(normalizedFull);
+        setThumbnailUri(normalizedThumb);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick image');
@@ -688,7 +714,25 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           <Text style={styles.label}>Chart Screenshot</Text>
           {screenshotUri ? (
             <View style={styles.imageContainer}>
-              <Image source={{ uri: screenshotUri }} style={styles.previewImage} />
+              <Image
+                source={{ uri: screenshotUri }}
+                style={styles.previewImage}
+                onLoad={() =>
+                  console.log('[CreateEditTradeScreen] preview image onLoad', {
+                    tradeId,
+                    screenshotUri,
+                    thumbnailUri,
+                  })
+                }
+                onError={(event) =>
+                  console.error('[CreateEditTradeScreen] preview image onError', {
+                    tradeId,
+                    screenshotUri,
+                    thumbnailUri,
+                    error: event.nativeEvent.error,
+                  })
+                }
+              />
               <TouchableOpacity
                 style={styles.removeImageButton}
                 onPress={handleRemoveImage}
