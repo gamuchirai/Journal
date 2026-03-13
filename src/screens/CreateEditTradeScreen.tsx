@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -96,6 +96,44 @@ const LChevronDown = ChevronDown as React.ComponentType<any>;
 const LLocateFixed = LocateFixed as React.ComponentType<any>;
 const LX = X as React.ComponentType<any>;
 
+const MIN_BIAS_TIMEFRAME_INDEX = 2;
+
+const getTimeframeIndex = (timeframe: string): number => TIMEFRAMES.indexOf(timeframe);
+
+const getLowerTimeframes = (timeframe: string): string[] => {
+  const index = getTimeframeIndex(timeframe);
+  if (index <= 0) return [];
+  return TIMEFRAMES.slice(0, index);
+};
+
+const isStrictlyLowerTimeframe = (lower: string, higher: string): boolean => {
+  const lowerIndex = getTimeframeIndex(lower);
+  const higherIndex = getTimeframeIndex(higher);
+  return lowerIndex >= 0 && higherIndex >= 0 && lowerIndex < higherIndex;
+};
+
+const getDefaultHierarchyTimeframes = (preferredBiasTimeframe: string) => {
+  const preferredBiasIndex = getTimeframeIndex(preferredBiasTimeframe);
+  const safeBiasIndex =
+    preferredBiasIndex >= MIN_BIAS_TIMEFRAME_INDEX ? preferredBiasIndex : MIN_BIAS_TIMEFRAME_INDEX;
+  const biasTimeframe = TIMEFRAMES[safeBiasIndex] || TIMEFRAMES[MIN_BIAS_TIMEFRAME_INDEX];
+
+  const narrativeOptions = getLowerTimeframes(biasTimeframe).filter(
+    (timeframe) => getTimeframeIndex(timeframe) >= 1
+  );
+  const narrativeTimeframe =
+    narrativeOptions[narrativeOptions.length - 1] || TIMEFRAMES[1] || TIMEFRAMES[0] || '';
+
+  const entryOptions = getLowerTimeframes(narrativeTimeframe);
+  const entryTimeframe = entryOptions[entryOptions.length - 1] || TIMEFRAMES[0] || '';
+
+  return {
+    biasTimeframe,
+    narrativeTimeframe,
+    entryTimeframe,
+  };
+};
+
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
   const { saveTrade, loading } = useTradeStore();
@@ -112,7 +150,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     options: string[];
   } | null>(null);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, watch } = useForm<FormData>({
     defaultValues: {
       market: '',
       // Bias defaults
@@ -138,6 +176,25 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       whatWentWrong: '',
     },
   });
+
+  const biasTimeframe = watch('biasTimeframe');
+  const narrativeTimeframe = watch('narrativeTimeframe');
+  const entryTimeframe = watch('entryTimeframe');
+
+  const biasTimeframeOptions = useMemo(
+    () => TIMEFRAMES.filter((_, index) => index >= MIN_BIAS_TIMEFRAME_INDEX),
+    []
+  );
+
+  const narrativeTimeframeOptions = useMemo(() => {
+    if (!biasTimeframe) return [];
+    return getLowerTimeframes(biasTimeframe).filter((timeframe) => getTimeframeIndex(timeframe) >= 1);
+  }, [biasTimeframe]);
+
+  const entryTimeframeOptions = useMemo(() => {
+    if (!narrativeTimeframe) return [];
+    return getLowerTimeframes(narrativeTimeframe);
+  }, [narrativeTimeframe]);
 
   // Load preferences and existing trade if editing
   useEffect(() => {
@@ -196,16 +253,17 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           }
         } else {
           // Set defaults for new trade
+          const defaultHierarchy = getDefaultHierarchyTimeframes(prefs.defaultTimeframe);
           reset({
             market: prefs.recentMarkets[0] || FOREX_PAIRS[0],
             biasDirection: 'Long',
             biasPdArray: PD_ARRAYS[0],
-            biasTimeframe: prefs.defaultTimeframe,
+            biasTimeframe: defaultHierarchy.biasTimeframe,
             narrativeContextArea: CONTEXT_AREAS[0],
             narrativePdArray: PD_ARRAYS[0],
-            narrativeTimeframe: prefs.defaultTimeframe,
+            narrativeTimeframe: defaultHierarchy.narrativeTimeframe,
             entryPattern: ENTRY_PATTERNS[0],
-            entryTimeframe: prefs.defaultTimeframe,
+            entryTimeframe: defaultHierarchy.entryTimeframe,
           });
         }
       } catch (error) {
@@ -224,6 +282,29 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
 
     loadInitialData();
   }, [tradeId]);
+
+  useEffect(() => {
+    if (!biasTimeframeOptions.includes(biasTimeframe)) {
+      setValue('biasTimeframe', biasTimeframeOptions[0] || '', { shouldDirty: true });
+    }
+  }, [biasTimeframe, biasTimeframeOptions, setValue]);
+
+  useEffect(() => {
+    const fallbackNarrative =
+      narrativeTimeframeOptions[narrativeTimeframeOptions.length - 1] || '';
+
+    if (!narrativeTimeframeOptions.includes(narrativeTimeframe)) {
+      setValue('narrativeTimeframe', fallbackNarrative, { shouldDirty: true });
+    }
+  }, [narrativeTimeframe, narrativeTimeframeOptions, setValue]);
+
+  useEffect(() => {
+    const fallbackEntry = entryTimeframeOptions[entryTimeframeOptions.length - 1] || '';
+
+    if (!entryTimeframeOptions.includes(entryTimeframe)) {
+      setValue('entryTimeframe', fallbackEntry, { shouldDirty: true });
+    }
+  }, [entryTimeframe, entryTimeframeOptions, setValue]);
 
   const handlePickImage = async () => {
     try {
@@ -280,6 +361,22 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     console.log('Form data:', JSON.stringify(data, null, 2));
     
     try {
+      if (!isStrictlyLowerTimeframe(data.narrativeTimeframe, data.biasTimeframe)) {
+        Alert.alert(
+          'Invalid Timeframe Alignment',
+          'Narrative timeframe must be lower than bias timeframe.'
+        );
+        return;
+      }
+
+      if (!isStrictlyLowerTimeframe(data.entryTimeframe, data.narrativeTimeframe)) {
+        Alert.alert(
+          'Invalid Timeframe Alignment',
+          'Entry timeframe must be lower than narrative timeframe.'
+        );
+        return;
+      }
+
       // Calculate Risk:Reward ratio
       let calculatedRR = '';
       if (data.stop && data.target) {
@@ -501,7 +598,9 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                 render={({ field: { value } }) => (
                   <TouchableOpacity
                     style={styles.selectBox}
-                    onPress={() => openSelect('biasTimeframe', 'Select Bias Timeframe', TIMEFRAMES)}
+                    onPress={() =>
+                      openSelect('biasTimeframe', 'Select Bias Timeframe', biasTimeframeOptions)
+                    }
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
                     <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
@@ -599,7 +698,18 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                 render={({ field: { value } }) => (
                   <TouchableOpacity
                     style={styles.selectBox}
-                    onPress={() => openSelect('narrativeTimeframe', 'Select Narrative Timeframe', TIMEFRAMES)}
+                    onPress={() => {
+                      if (narrativeTimeframeOptions.length === 0) {
+                        Alert.alert('Select Bias Timeframe', 'Choose a higher bias timeframe first.');
+                        return;
+                      }
+
+                      openSelect(
+                        'narrativeTimeframe',
+                        'Select Narrative Timeframe',
+                        narrativeTimeframeOptions
+                      );
+                    }}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
                     <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />
@@ -665,7 +775,17 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
                 render={({ field: { value } }) => (
                   <TouchableOpacity
                     style={styles.selectBox}
-                    onPress={() => openSelect('entryTimeframe', 'Select Entry Timeframe', TIMEFRAMES)}
+                    onPress={() => {
+                      if (entryTimeframeOptions.length === 0) {
+                        Alert.alert(
+                          'Select Narrative Timeframe',
+                          'Choose a higher narrative timeframe first.'
+                        );
+                        return;
+                      }
+
+                      openSelect('entryTimeframe', 'Select Entry Timeframe', entryTimeframeOptions);
+                    }}
                   >
                     <Text style={styles.selectBoxText}>{value || 'Choose'}</Text>
                     <LChevronDown size={16} strokeWidth={2.2} style={{ color: C.textMuted }} />

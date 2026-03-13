@@ -120,4 +120,60 @@ describe('CreateEditTradeScreen', () => {
     expect(savedTrade.status).toBe('closed');
     expect(savedTrade.bias.direction).toBe('Long');
   });
+
+  it('shows only hierarchy-valid options in timeframe selectors', async () => {
+    mockDb.getUserPreferences.mockResolvedValue({
+      defaultTimeframe: '1h',
+      recentMarkets: ['EUR/USD'],
+      recentContexts: ['London Open'],
+    } as any);
+
+    mockUseTradeStore.mockReturnValue({
+      saveTrade: jest.fn(),
+      loading: false,
+    });
+
+    const navigation = { goBack: jest.fn(), navigate: jest.fn() };
+
+    const screen = render(
+      <CreateEditTradeScreen navigation={navigation as any} route={{ params: {} } as any} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Save Trade')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('1h'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Bias Timeframe')).toBeTruthy();
+    });
+
+    expect(screen.queryAllByText('15m').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('5m').length).toBe(0);
+    fireEvent.press(screen.getByText('Cancel'));
+
+    fireEvent.press(screen.getByText('30m'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Narrative Timeframe')).toBeTruthy();
+    });
+
+    expect(screen.queryAllByText('5m').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('1m').length).toBe(0);
+    fireEvent.press(screen.getAllByText('5m')[0]);
+
+    await waitFor(() => {
+      expect(screen.queryAllByText('1m').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.press(screen.getAllByText('1m')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Entry Timeframe')).toBeTruthy();
+    });
+
+    expect(screen.queryAllByText('1m').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('5m').length).toBeLessThanOrEqual(1);
+  });
 });

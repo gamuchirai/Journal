@@ -1,0 +1,3 @@
+id,date,market,timeframe,status,bias.direction,bias.pdArray,bias.timeframe,bias.playedOut,narrative.contextArea,narrative.pdArray,narrative.timeframe,narrative.playedOut,entry.entryPattern,entry.timeframe,entry.playedOut,risk.stop,risk.target,risk.riskReward,outcomes.biasPlayedOut,outcomes.narrativePlayedOut,outcomes.contextHeld,outcomes.entryExecuted,outcomes.riskManaged,pnl,notes.whatWentRight,notes.whatWentWrong,context,screenshotUri,thumbnailUri
+trade_001,1738502400000,EUR/USD,1h,closed,Long,FVG,1h,true,Discount,OB,4h,false,OTE,15m,true,1.0820,1.0920,1:2.5,true,false,true,true,true,+150.50,Followed plan and respected invalidation,Took partials too early,HTF Trend,,
+,,,,,Long,,,,,,,,,,,,,,,,,,,,,,,,,
