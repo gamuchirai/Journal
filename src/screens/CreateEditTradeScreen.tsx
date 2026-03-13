@@ -22,6 +22,7 @@ import {
   Check,
   ChevronDown,
   LocateFixed,
+  ShieldCheck,
   X,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -60,10 +61,12 @@ interface FormData {
   narrativePdArray: string;
   narrativeTimeframe: string;
   narrativePlayedOut: boolean | null;
+  contextHeld: boolean | null;
   // Entry fields
   entryPattern: string;
   entryTimeframe: string;
   entryPlayedOut: boolean | null;
+  riskManaged: boolean | null;
   // Risk
   stop: string;
   target: string;
@@ -88,6 +91,7 @@ const LCamera = Camera as React.ComponentType<any>;
 const LCheck = Check as React.ComponentType<any>;
 const LChevronDown = ChevronDown as React.ComponentType<any>;
 const LLocateFixed = LocateFixed as React.ComponentType<any>;
+const LShieldCheck = ShieldCheck as React.ComponentType<any>;
 const LX = X as React.ComponentType<any>;
 
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
@@ -119,10 +123,12 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       narrativePdArray: '',
       narrativeTimeframe: '',
       narrativePlayedOut: null,
+      contextHeld: null,
       // Entry defaults
       entryPattern: '',
       entryTimeframe: '',
       entryPlayedOut: null,
+      riskManaged: null,
       // Risk
       stop: '',
       target: '',
@@ -194,10 +200,12 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               narrativePdArray: typeof narrative === 'object' ? narrative.pdArray : '',
               narrativeTimeframe: typeof narrative === 'object' ? narrative.timeframe : '',
               narrativePlayedOut: typeof narrative === 'object' ? narrative.playedOut : null,
+              contextHeld: existingTrade.outcomes.contextHeld,
               // Entry fields
               entryPattern: typeof entry === 'object' ? entry.entryPattern : '',
               entryTimeframe: typeof entry === 'object' ? entry.timeframe : '',
               entryPlayedOut: typeof entry === 'object' ? entry.playedOut : null,
+              riskManaged: existingTrade.outcomes.riskManaged,
               // Risk
               stop: existingTrade.risk.stop,
               target: existingTrade.risk.target,
@@ -373,7 +381,9 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       const hasPlayedOutDecision =
         data.biasPlayedOut !== null ||
         data.narrativePlayedOut !== null ||
-        data.entryPlayedOut !== null;
+        data.contextHeld !== null ||
+        data.entryPlayedOut !== null ||
+        data.riskManaged !== null;
       const nextStatus =
         currentStatus === 'draft' && hasPlayedOutDecision ? 'closed' : currentStatus;
       
@@ -394,9 +404,9 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         outcomes: {
           biasPlayedOut: data.biasPlayedOut,
           narrativePlayedOut: data.narrativePlayedOut,
-          contextHeld: trade?.outcomes?.contextHeld ?? null,
+          contextHeld: data.contextHeld,
           entryExecuted: data.entryPlayedOut,
-          riskManaged: trade?.outcomes?.riskManaged ?? null,
+          riskManaged: data.riskManaged,
         },
         screenshotUri,
         thumbnailUri,
@@ -589,39 +599,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               )}
             />
           </View>
-          
-          {/* Context Area */}
-          <Text style={styles.subLabel}>Context Area</Text>
-          <Controller
-            control={control}
-            name="narrativeContextArea"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {CONTEXT_AREAS.map((ctx) => (
-                    <TouchableOpacity
-                      key={ctx}
-                      style={[
-                        styles.pickerOption,
-                        value === ctx && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => onChange(ctx)}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          value === ctx && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {ctx}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          />
-          
+
           {/* PD Array + Timeframe side by side */}
           <View style={[styles.selectRow, styles.marginTop]}>
             <View style={styles.selectHalf}>
@@ -668,6 +646,67 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               />
             </View>
           </View>
+        </View>
+
+        {/* ===== CONTEXT SECTION ===== */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <SectionTitle Icon={LBookOpen} label="Context" />
+            <Controller
+              control={control}
+              name="contextHeld"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.playedOutToggle}>
+                  <Text style={styles.playedOutLabel}>Held?</Text>
+                  <View style={styles.playedOutButtons}>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
+                      onPress={() => onChange(value === true ? null : true)}
+                    >
+                      <LCheck size={14} strokeWidth={2.8} style={{ color: value === true ? C.text : C.textDim }} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
+                      onPress={() => onChange(value === false ? null : false)}
+                    >
+                      <LX size={14} strokeWidth={2.8} style={{ color: value === false ? C.text : C.textDim }} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+
+          <Text style={styles.subLabel}>Context Area</Text>
+          <Controller
+            control={control}
+            name="narrativeContextArea"
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {CONTEXT_AREAS.map((ctx) => (
+                    <TouchableOpacity
+                      key={ctx}
+                      style={[
+                        styles.pickerOption,
+                        value === ctx && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => onChange(ctx)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          value === ctx && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {ctx}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          />
         </View>
 
         {/* ===== ENTRY SECTION ===== */}
@@ -746,37 +785,70 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           </View>
         </View>
 
-        {/* Risk Management */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Risk Management</Text>
-          <Controller
-            control={control}
-            name="stop"
-            render={({ field: { value, onChange } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Stop Loss..."
-                placeholderTextColor={C.textMuted}
-                value={value}
-                onChangeText={onChange}
-                keyboardType="decimal-pad"
+        {/* ===== RISK MANAGEMENT SECTION ===== */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <SectionTitle Icon={LShieldCheck} label="Risk Management" />
+            <Controller
+              control={control}
+              name="riskManaged"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.playedOutToggle}>
+                  <Text style={styles.playedOutLabel}>Managed?</Text>
+                  <View style={styles.playedOutButtons}>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === true && styles.playedOutBtnYes]}
+                      onPress={() => onChange(value === true ? null : true)}
+                    >
+                      <LCheck size={14} strokeWidth={2.8} style={{ color: value === true ? C.text : C.textDim }} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.playedOutBtn, value === false && styles.playedOutBtnNo]}
+                      onPress={() => onChange(value === false ? null : false)}
+                    >
+                      <LX size={14} strokeWidth={2.8} style={{ color: value === false ? C.text : C.textDim }} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+          <View style={styles.selectRow}>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Stop Loss</Text>
+              <Controller
+                control={control}
+                name="stop"
+                render={({ field: { value, onChange } }) => (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor={C.textMuted}
+                    value={value}
+                    onChangeText={onChange}
+                    keyboardType="decimal-pad"
+                  />
+                )}
               />
-            )}
-          />
-          <Controller
-            control={control}
-            name="target"
-            render={({ field: { value, onChange } }) => (
-              <TextInput
-                style={[styles.input, styles.marginTop]}
-                placeholder="Target..."
-                placeholderTextColor={C.textMuted}
-                value={value}
-                onChangeText={onChange}
-                keyboardType="decimal-pad"
+            </View>
+            <View style={styles.selectHalf}>
+              <Text style={styles.subLabel}>Target</Text>
+              <Controller
+                control={control}
+                name="target"
+                render={({ field: { value, onChange } }) => (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor={C.textMuted}
+                    value={value}
+                    onChangeText={onChange}
+                    keyboardType="decimal-pad"
+                  />
+                )}
               />
-            )}
-          />
+            </View>
+          </View>
         </View>
 
         {/* Screenshot */}

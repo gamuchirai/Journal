@@ -92,7 +92,7 @@ describe('database web mode', () => {
           narrativePlayedOut: true,
           contextHeld: true,
           entryExecuted: true,
-          riskManaged: false,
+          riskManaged: true,
         },
       })
     );
@@ -121,7 +121,7 @@ describe('database web mode', () => {
       narrative: 100,
       context: 100,
       entry: 50,
-      risk: 50,
+      risk: 100,
     });
   });
 });

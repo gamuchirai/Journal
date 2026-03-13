@@ -20,7 +20,7 @@ import {
   deleteTradeImages,
   logImageUriDebug,
 } from '../utils/imageUtils';
-import { BuildingBlockCard, OutcomeBlock, ScreenLoadingState } from '../components';
+import { BuildingBlockCard, ScreenLoadingState } from '../components';
 import { formatLongDate } from '../utils/dateUtils';
 import { useTradeImage } from '../hooks';
 import { calculateTradeRiskRewardRatio } from '../utils/riskUtils';
@@ -86,11 +86,6 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
     ]);
   };
 
-  const handleEditOutcomes = () => {
-    // Navigate to edit mode or show modal
-    navigation.navigate('CreateEditTrade', { tradeId });
-  };
-
   if (loading || !trade) {
     return <ScreenLoadingState />;
   }
@@ -123,6 +118,25 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
           <View style={[styles.badge, { backgroundColor: C.surface }]}>
             <Text style={styles.badgeText}>{trade.status}</Text>
           </View>
+        </View>
+        <View style={styles.bncerRow}>
+          {[
+            { key: 'B', value: trade.outcomes.biasPlayedOut },
+            { key: 'N', value: trade.outcomes.narrativePlayedOut },
+            { key: 'C', value: trade.outcomes.contextHeld },
+            { key: 'E', value: trade.outcomes.entryExecuted },
+            { key: 'R', value: trade.outcomes.riskManaged },
+          ].map(({ key, value }) => (
+            <View
+              key={key}
+              style={[
+                styles.bncerBox,
+                { backgroundColor: value === true ? C.gain : value === false ? C.loss : 'rgba(255,255,255,0.18)' },
+              ]}
+            >
+              <Text style={styles.bncerLabel}>{key}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -262,27 +276,6 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
         </View>
       </View>
 
-      {/* Outcomes Evaluation */}
-      {(trade.status === 'closed' || trade.status === 'reviewed') && (
-        <View style={styles.section}>
-          <View style={styles.outcomeHeader}>
-            <Text style={styles.sectionTitle}>Outcome Evaluation</Text>
-            <TouchableOpacity
-              style={styles.editOutcomesButton}
-              onPress={handleEditOutcomes}
-            >
-              <Text style={styles.editOutcomesText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.outcomeGrid}>
-            <OutcomeBlock label="Bias Played Out" value={trade.outcomes.biasPlayedOut} />
-            <OutcomeBlock label="Narrative Played Out" value={trade.outcomes.narrativePlayedOut} />
-            <OutcomeBlock label="Context Held" value={trade.outcomes.contextHeld} />
-            <OutcomeBlock label="Entry Executed" value={trade.outcomes.entryExecuted} />
-            <OutcomeBlock label="Risk Managed" value={trade.outcomes.riskManaged} />
-          </View>
-        </View>
-      )}
 
       {/* Notes */}
       {(trade.notes.whatWentRight || trade.notes.whatWentWrong) && (
@@ -595,57 +588,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: C.text,
   },
-  outcomeHeader: {
+  bncerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
+    marginTop: 14,
   },
-  editOutcomesButton: {
-    backgroundColor: C.tealLight,
-    borderWidth: 1,
-    borderColor: C.tealDim,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+  bncerBox: {
+    flex: 1,
+    paddingVertical: 7,
     borderRadius: 8,
-  },
-  editOutcomesText: {
-    fontFamily: 'DMSans_600SemiBold',
-    color: C.teal,
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  outcomeGrid: {
-    gap: 2,
-  },
-  outcomeBlock: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    justifyContent: 'center',
   },
-  outcomeLabel: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
-    color: C.text,
-  },
-  outcomeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  outcomeBadgeText: {
+  bncerLabel: {
     fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
     color: '#ffffff',
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  outcomeUnanswered: {
-    fontFamily: 'DMMono_400Regular',
-    fontSize: 16,
-    color: C.textDim,
+    letterSpacing: 0.5,
   },
   noteBox: {
     backgroundColor: C.surface,

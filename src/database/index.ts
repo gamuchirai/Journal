@@ -572,14 +572,19 @@ export const getWinRate = async (): Promise<number> => {
     const store = getWebStore();
     const closedTrades = store.trades.filter(t => ['closed', 'reviewed'].includes(t.status));
     console.log('[DB] getWinRate closed trades:', closedTrades.length);
-    const withPnl = closedTrades.filter(t => t.pnl && t.pnl.trim() !== '');
-    console.log('[DB] getWinRate with PnL:', withPnl.length);
-    if (withPnl.length === 0) {
+    if (closedTrades.length === 0) {
       console.log('[DB] getWinRate returning 0 (no closed trades)');
       return 0;
     }
-    const wins = withPnl.filter(t => Number(t.pnl) > 0).length;
-    const rate = (wins / withPnl.length) * 100;
+    const wins = closedTrades.filter(
+      t =>
+        t.outcomes.biasPlayedOut === true &&
+        t.outcomes.narrativePlayedOut === true &&
+        t.outcomes.contextHeld === true &&
+        t.outcomes.entryExecuted === true &&
+        t.outcomes.riskManaged === true
+    ).length;
+    const rate = (wins / closedTrades.length) * 100;
     console.log('[DB] getWinRate computed web rate:', rate);
     return rate;
   }
@@ -590,8 +595,17 @@ export const getWinRate = async (): Promise<number> => {
     console.log('[DB] getWinRate querying SQLite');
     const result = await db!.getFirstAsync(
       `SELECT
-        COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' THEN 1 END) as total,
-        COUNT(CASE WHEN pnl IS NOT NULL AND pnl != '' AND CAST(pnl AS REAL) > 0 THEN 1 END) as wins
+        COUNT(*) as total,
+        COUNT(
+          CASE
+            WHEN biasPlayedOut = 1
+              AND narrativePlayedOut = 1
+              AND contextHeld = 1
+              AND entryExecuted = 1
+              AND riskManaged = 1
+            THEN 1
+          END
+        ) as wins
        FROM trades WHERE status IN ('closed', 'reviewed')`
     ) as any;
 
