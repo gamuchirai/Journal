@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -90,8 +91,12 @@ const DashboardScreen = ({ navigation }: Props) => {
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
         {/* Header */}
-        <View style={S.header}>
-          <Text style={T.screenTitle}>TradeFlow</Text>
+        <View style={[S.header, ls.headerRow]}>
+          <Image
+            source={require('../../assets/header-logo.png')}
+            style={ls.headerLogo}
+            resizeMode="contain"
+          />
           <Text style={T.headerSub}>
             {new Date().toLocaleDateString('en-US', {
               month: 'long',
@@ -126,9 +131,12 @@ const DashboardScreen = ({ navigation }: Props) => {
         <Text style={[T.sectionLabel, S.sectionLabel]}>Building Blocks</Text>
 
         {/* Building block bars */}
-        <View style={ls.blocksContainer}>
+        <View style={ls.blocksCard}>
           {blocks.map((block, i) => (
-            <View key={block.label} style={ls.blockRow}>
+            <View key={block.label} style={[
+              ls.blockRow,
+              i < blocks.length - 1 && ls.blockRowDivider,
+            ]}>
               <Text style={ls.blockLabel}>{block.label}</Text>
               <View style={ls.barBg}>
                 <Animated.View
@@ -181,6 +189,15 @@ const DashboardScreen = ({ navigation }: Props) => {
 const ls = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLogo: {
+    height: 36,
+    width: 180,
+  },
   statRow: {
     flexDirection: 'row',
     gap: 10,
@@ -221,31 +238,41 @@ const ls = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     marginTop: 6,
   },
-  blocksContainer: {
-    paddingHorizontal: 24,
-    gap: 12,
+  blocksCard: {
+    marginHorizontal: 24,
+    backgroundColor: C.elevated,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 16,
+    ...cardShadow,
   },
   blockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingVertical: 13,
+  },
+  blockRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   blockLabel: {
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 12,
-    color: C.textMuted,
+    color: C.text,
     width: 70,
   },
   barBg: {
     flex: 1,
-    height: 5,
+    height: 6,
     backgroundColor: C.border,
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   barFill: {
-    height: 5,
-    borderRadius: 5,
+    height: 6,
+    borderRadius: 6,
     backgroundColor: C.teal,
   },
   barPct: {

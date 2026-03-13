@@ -193,7 +193,7 @@ export default function App() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg, paddingHorizontal: 20 }}>
         <ActivityIndicator size="large" color={C.teal} />
         <Text style={{ marginTop: 16, fontSize: 12, color: C.textMuted, textAlign: 'center' }}>
-          Loading TradeFlow...
+          Loading Edge Journal...
         </Text>
       </View>
     );
