@@ -5,14 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Image,
   Modal,
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Check, CheckCircle2, X, XCircle } from 'lucide-react-native';
+import { CheckCircle2, XCircle } from 'lucide-react-native';
 import { RootStackParamList, Trade, BiasData, NarrativeData, EntryData } from '../types';
 import { C } from '../constants/Colors';
 import { cardShadow, amberShadow } from '../constants/Styles';
@@ -22,28 +21,15 @@ import {
   logImageUriDebug,
   resolveExistingImageUri,
 } from '../utils/imageUtils';
+import { BuildingBlockCard, OutcomeBlock, ScreenLoadingState } from '../components';
+import { formatLongDate } from '../utils/dateUtils';
 import { calculateTradeRiskRewardRatio } from '../utils/riskUtils';
 import { useTradeStore } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TradeDetail'>;
 
-const LCheck = Check as React.ComponentType<any>;
 const LCheckCircle2 = CheckCircle2 as React.ComponentType<any>;
-const LX = X as React.ComponentType<any>;
 const LXCircle = XCircle as React.ComponentType<any>;
-
-const DetailSectionTitle = ({
-  icon,
-  label,
-}: {
-  icon: React.ComponentType<any>;
-  label: string;
-}) => (
-  <View style={styles.detailSectionTitleRow}>
-    {React.createElement(icon, { size: 14, strokeWidth: 2.2, style: { color: C.teal } })}
-    <Text style={styles.buildingBlockTitle}>{label}</Text>
-  </View>
-);
 
 const TradeDetailScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
@@ -134,81 +120,8 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
   };
 
   if (loading || !trade) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={C.teal} />
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenLoadingState />;
   }
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  // Building Block Card Component with Played Out indicator
-  const BuildingBlockCard = ({ 
-    title, 
-    playedOut, 
-    children 
-  }: { 
-    title: string; 
-    playedOut: boolean | null; 
-    children: React.ReactNode 
-  }) => (
-    <View style={styles.buildingBlockCard}>
-      <View style={styles.buildingBlockHeader}>
-        <Text style={styles.buildingBlockTitle}>{title}</Text>
-        <View style={styles.playedOutIndicator}>
-          <Text style={styles.playedOutText}>Played Out</Text>
-          {playedOut === null ? (
-            <View style={styles.playedOutBadgeNeutral}>
-              <Text style={styles.playedOutBadgeText}>-</Text>
-            </View>
-          ) : (
-            <View style={[
-              styles.playedOutBadge,
-              { backgroundColor: playedOut ? C.gain : C.loss }
-            ]}>
-              {playedOut ? (
-                <LCheck size={12} strokeWidth={2.8} style={{ color: '#ffffff' }} />
-              ) : (
-                <LX size={12} strokeWidth={2.8} style={{ color: '#ffffff' }} />
-              )}
-            </View>
-          )}
-        </View>
-      </View>
-      <View style={styles.buildingBlockContent}>
-        {children}
-      </View>
-    </View>
-  );
-
-  const OutcomeBlock = ({ label, value }: { label: string; value: boolean | null }) => (
-    <View style={styles.outcomeBlock}>
-      <Text style={styles.outcomeLabel}>{label}</Text>
-      {value === null ? (
-        <Text style={styles.outcomeUnanswered}>-</Text>
-      ) : (
-        <View
-          style={[
-            styles.outcomeBadge,
-            { backgroundColor: value ? C.gain : C.loss },
-          ]}
-        >
-          <Text style={styles.outcomeBadgeText}>{value ? 'Yes' : 'No'}</Text>
-        </View>
-      )}
-    </View>
-  );
 
   const rrRatio = calculateTradeRiskRewardRatio(trade);
 
@@ -227,7 +140,7 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
             {trade.pnl || '-'}
           </Text>
         </View>
-        <Text style={styles.date}>{formatDate(trade.date)}</Text>
+        <Text style={styles.date}>{formatLongDate(trade.date)}</Text>
         <View style={styles.headerDetails}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{trade.timeframe}</Text>

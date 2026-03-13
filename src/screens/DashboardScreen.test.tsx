@@ -18,6 +18,18 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+jest.mock('lucide-react-native', () => {
+  const ReactActual = require('react');
+  const { Text } = require('react-native');
+  const Icon = () => ReactActual.createElement(Text, null, 'icon');
+  return {
+    Check: Icon,
+    CheckCircle2: Icon,
+    X: Icon,
+    XCircle: Icon,
+  };
+});
+
 import * as db from '../database';
 
 const mockDb = db as jest.Mocked<typeof db>;

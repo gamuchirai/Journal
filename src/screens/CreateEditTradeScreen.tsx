@@ -37,7 +37,15 @@ import {
   logImageUriDebug,
   normalizeImageUri,
 } from '../utils/imageUtils';
+import { SectionTitle, ScreenLoadingState } from '../components';
 import * as db from '../database';
+import {
+  MIN_BIAS_TIMEFRAME_INDEX,
+  getTimeframeIndex,
+  getLowerTimeframes,
+  isStrictlyLowerTimeframe,
+  getDefaultHierarchyTimeframes,
+} from '../utils/timeframeUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateEditTrade'>;
 
@@ -75,19 +83,6 @@ type SelectField =
   | 'entryPattern'
   | 'entryTimeframe';
 
-const SectionTitle = ({
-  Icon,
-  label,
-}: {
-  Icon: React.ComponentType<any>;
-  label: string;
-}) => (
-  <View style={styles.sectionLabelRow}>
-    <Icon size={14} strokeWidth={2.2} style={{ color: C.teal }} />
-    <Text style={styles.sectionLabel}>{label}</Text>
-  </View>
-);
-
 const LBarChart3 = BarChart3 as React.ComponentType<any>;
 const LBookOpen = BookOpen as React.ComponentType<any>;
 const LCamera = Camera as React.ComponentType<any>;
@@ -95,44 +90,6 @@ const LCheck = Check as React.ComponentType<any>;
 const LChevronDown = ChevronDown as React.ComponentType<any>;
 const LLocateFixed = LocateFixed as React.ComponentType<any>;
 const LX = X as React.ComponentType<any>;
-
-const MIN_BIAS_TIMEFRAME_INDEX = 2;
-
-const getTimeframeIndex = (timeframe: string): number => TIMEFRAMES.indexOf(timeframe);
-
-const getLowerTimeframes = (timeframe: string): string[] => {
-  const index = getTimeframeIndex(timeframe);
-  if (index <= 0) return [];
-  return TIMEFRAMES.slice(0, index);
-};
-
-const isStrictlyLowerTimeframe = (lower: string, higher: string): boolean => {
-  const lowerIndex = getTimeframeIndex(lower);
-  const higherIndex = getTimeframeIndex(higher);
-  return lowerIndex >= 0 && higherIndex >= 0 && lowerIndex < higherIndex;
-};
-
-const getDefaultHierarchyTimeframes = (preferredBiasTimeframe: string) => {
-  const preferredBiasIndex = getTimeframeIndex(preferredBiasTimeframe);
-  const safeBiasIndex =
-    preferredBiasIndex >= MIN_BIAS_TIMEFRAME_INDEX ? preferredBiasIndex : MIN_BIAS_TIMEFRAME_INDEX;
-  const biasTimeframe = TIMEFRAMES[safeBiasIndex] || TIMEFRAMES[MIN_BIAS_TIMEFRAME_INDEX];
-
-  const narrativeOptions = getLowerTimeframes(biasTimeframe).filter(
-    (timeframe) => getTimeframeIndex(timeframe) >= 1
-  );
-  const narrativeTimeframe =
-    narrativeOptions[narrativeOptions.length - 1] || TIMEFRAMES[1] || TIMEFRAMES[0] || '';
-
-  const entryOptions = getLowerTimeframes(narrativeTimeframe);
-  const entryTimeframe = entryOptions[entryOptions.length - 1] || TIMEFRAMES[0] || '';
-
-  return {
-    biasTimeframe,
-    narrativeTimeframe,
-    entryTimeframe,
-  };
-};
 
 const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   const { tradeId } = route.params;
@@ -464,13 +421,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
   };
 
   if (loadingTrade || !preferences) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={C.teal} />
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenLoadingState />;
   }
 
   return (

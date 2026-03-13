@@ -21,6 +21,8 @@ import {
   calculateTradeRiskRewardValue,
 } from '../utils/riskUtils';
 import { resolveExistingImageUri } from '../utils/imageUtils';
+import { formatShortDate } from '../utils/dateUtils';
+import { getPnLColor, getRrColor } from '../utils/colorUtils';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Trades'>,
@@ -88,26 +90,7 @@ const TradeListScreen = ({ navigation }: Props) => {
     navigation.navigate('TradeDetail', { tradeId: trade.id });
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
-  const getPnLColor = (pnl: string | null) => {
-    if (!pnl) return C.textMuted;
-    const value = parseFloat(pnl);
-    return value > 0 ? C.gain : value < 0 ? C.loss : C.textMuted;
-  };
-
-  const getRrColor = (ratioValue: number | null) => {
-    if (ratioValue === null) return C.textMuted;
-    if (ratioValue >= 3) return C.gain;
-    if (ratioValue < 1) return C.loss;
-    return C.teal;
-  };
 
   const renderTradeCard = ({ item }: { item: Trade }) => {
     const isActive = item.status === 'active';
@@ -152,7 +135,7 @@ const TradeListScreen = ({ navigation }: Props) => {
           ) : null}
         </View>
         <View style={ls.cardMeta}>
-          <Text style={ls.dateText}>{formatDate(item.date)}</Text>
+          <Text style={ls.dateText}>{formatShortDate(item.date)}</Text>
           {item.timeframe ? (
             <View style={S.tfChip}>
               <Text style={S.tfChipText}>{String(item.timeframe)}</Text>

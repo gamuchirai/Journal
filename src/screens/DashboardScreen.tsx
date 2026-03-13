@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +14,8 @@ import { RootStackParamList, TabParamList } from '../types';
 import { C } from '../constants/Colors';
 import { T, S, cardShadow, accentShadow } from '../constants/Styles';
 import * as db from '../database';
+import { getStrongestBlockInsight, getWeakestBlockInsight } from '../utils/insightUtils';
+import { ScreenLoadingState } from '../components';
 
 interface DashboardAnalytics {
   totalTrades: number;
@@ -87,33 +88,7 @@ const DashboardScreen = ({ navigation }: Props) => {
     }
   }, [analytics]);
 
-  const getStrongestBlockInsight = (blockRates: DashboardAnalytics['blockRates']) => {
-    const strongestBlock = Object.entries(blockRates).reduce((best, entry) =>
-      entry[1] > best[1] ? entry : best
-    );
-    const labels: Record<string, string> = {
-      bias: 'Your bias analysis is your strongest block.',
-      narrative: 'Your narrative setup is your strongest block.',
-      context: 'Your context reading is your strongest block.',
-      entry: 'Your entry execution is your strongest block.',
-      risk: 'Your risk management is your strongest block.',
-    };
-    return labels[strongestBlock[0]];
-  };
 
-  const getWeakestBlockInsight = (blockRates: DashboardAnalytics['blockRates']) => {
-    const weakestBlock = Object.entries(blockRates).reduce((worst, entry) =>
-      entry[1] < worst[1] ? entry : worst
-    );
-    const labels: Record<string, string> = {
-      bias: 'Focus on improving your bias analysis.',
-      narrative: 'Your narrative setups need refinement.',
-      context: 'Work on better context evaluation.',
-      entry: 'Refine your entry execution.',
-      risk: 'Review your risk management process.',
-    };
-    return labels[weakestBlock[0]];
-  };
 
   const blocks = analytics
     ? [
@@ -143,13 +118,7 @@ const DashboardScreen = ({ navigation }: Props) => {
     : [];
 
   if (loading || !analytics) {
-    return (
-      <SafeAreaView style={ls.screen} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={ls.center}>
-          <ActivityIndicator size="large" color={C.teal} />
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenLoadingState />;
   }
 
   return (
