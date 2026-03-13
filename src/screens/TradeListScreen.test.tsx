@@ -3,6 +3,16 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import TradeListScreen from './TradeListScreen';
 import { Trade } from '../types';
 
+jest.mock('lucide-react-native', () => ({
+  Check: () => null,
+  X: () => null,
+  ChevronDown: () => null,
+  BarChart3: () => null,
+  BookOpen: () => null,
+  Camera: () => null,
+  LocateFixed: () => null,
+}));
+
 const mockUseTradeStore = jest.fn();
 
 jest.mock('../store', () => ({

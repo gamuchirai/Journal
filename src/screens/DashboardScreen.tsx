@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,21 +13,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TabParamList } from '../types';
 import { C } from '../constants/Colors';
 import { T, S, cardShadow, accentShadow } from '../constants/Styles';
-import * as db from '../database';
 import { getStrongestBlockInsight, getWeakestBlockInsight } from '../utils/insightUtils';
 import { ScreenLoadingState } from '../components';
-
-interface DashboardAnalytics {
-  totalTrades: number;
-  winRate: number;
-  blockRates: {
-    bias: number;
-    narrative: number;
-    context: number;
-    entry: number;
-    risk: number;
-  };
-}
+import { useDashboardAnalytics } from '../hooks';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Dashboard'>,
@@ -37,41 +25,14 @@ type Props = CompositeScreenProps<
 const DashboardScreen = ({ navigation }: Props) => {
   console.log('[DashboardScreen] component mounted');
   const insets = useSafeAreaInsets();
-  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { analytics, loading, reload } = useDashboardAnalytics();
 
   const barAnims = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0))).current;
 
-  const loadData = async () => {
-    console.log('[DashboardScreen] loadData called');
-    try {
-      setLoading(true);
-      console.log('[DashboardScreen] About to load analytics data');
-      const trades = await db.getAllTrades();
-      const rate = await db.getWinRate();
-      const blockRates = await db.getBlockSuccessRates();
-      setAnalytics({
-        totalTrades: trades.length,
-        winRate: Math.round(rate),
-        blockRates,
-      });
-    } catch (e) {
-      console.error('[DashboardScreen] Error in loadData:', e);
-    } finally {
-      console.log('[DashboardScreen] loadData finally block');
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    console.log('[DashboardScreen] useEffect 1 - initial load');
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => { loadData(); });
+    const unsubscribe = navigation.addListener('focus', reload);
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, reload]);
 
   useEffect(() => {
     if (analytics) {

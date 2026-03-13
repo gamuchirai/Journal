@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -37,7 +36,7 @@ import {
   logImageUriDebug,
   normalizeImageUri,
 } from '../utils/imageUtils';
-import { SectionTitle, ScreenLoadingState } from '../components';
+import { SectionTitle, ScreenLoadingState, SelectPickerModal } from '../components';
 import * as db from '../database';
 import {
   MIN_BIAS_TIMEFRAME_INDEX,
@@ -835,32 +834,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         </TouchableOpacity>
       </ScrollView>
 
-        <Modal
+        <SelectPickerModal
           visible={!!activeSelect?.visible}
-          transparent
-          animationType="fade"
-          onRequestClose={closeSelect}
-        >
-          <View style={styles.selectModalOverlay}>
-            <View style={styles.selectModalCard}>
-              <Text style={styles.selectModalTitle}>{activeSelect?.title || 'Select Option'}</Text>
-              <ScrollView style={styles.selectModalList}>
-                {(activeSelect?.options || []).map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={styles.selectModalOption}
-                    onPress={() => handleSelectOption(option)}
-                  >
-                    <Text style={styles.selectModalOptionText}>{option}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity style={styles.selectModalClose} onPress={closeSelect}>
-                <Text style={styles.selectModalCloseText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+          title={activeSelect?.title || ''}
+          options={activeSelect?.options || []}
+          onSelect={handleSelectOption}
+          onClose={closeSelect}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -987,57 +967,6 @@ const styles = StyleSheet.create({
   selectBoxChevron: {
     fontFamily: 'DMSans_500Medium',
     fontSize: 11,
-    color: C.textMuted,
-  },
-  selectModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(13,46,56,0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  selectModalCard: {
-    backgroundColor: C.elevated,
-    borderRadius: 20,
-    maxHeight: '70%',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  selectModalTitle: {
-    fontFamily: 'Fraunces_300Light',
-    fontSize: 18,
-    fontWeight: '300',
-    color: C.teal,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  selectModalList: {
-    maxHeight: 320,
-  },
-  selectModalOption: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
-  },
-  selectModalOptionText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 14,
-    color: C.text,
-  },
-  selectModalClose: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: C.surface,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-  },
-  selectModalCloseText: {
-    fontFamily: 'DMSans_600SemiBold',
-    fontSize: 13,
-    letterSpacing: 0.3,
     color: C.textMuted,
   },
   selectRow: {

@@ -19,10 +19,10 @@ import * as db from '../database';
 import {
   deleteTradeImages,
   logImageUriDebug,
-  resolveExistingImageUri,
 } from '../utils/imageUtils';
 import { BuildingBlockCard, OutcomeBlock, ScreenLoadingState } from '../components';
 import { formatLongDate } from '../utils/dateUtils';
+import { useTradeImage } from '../hooks';
 import { calculateTradeRiskRewardRatio } from '../utils/riskUtils';
 import { useTradeStore } from '../store';
 
@@ -38,41 +38,13 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
   const [trade, setTrade] = useState<Trade | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageModalVisible, setImageModalVisible] = useState(false);
-  const [detailImageUri, setDetailImageUri] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  const detailImageUri = useTradeImage(trade);
 
   useEffect(() => {
     loadTrade();
   }, [tradeId]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const resolveDetailImage = async () => {
-      if (!trade) {
-        if (mounted) setDetailImageUri(null);
-        return;
-      }
-
-      const resolved = await resolveExistingImageUri(trade.screenshotUri, trade.thumbnailUri);
-      console.log('[TradeDetailScreen] resolved detail image URI', {
-        tradeId: trade.id,
-        screenshotUri: trade.screenshotUri,
-        thumbnailUri: trade.thumbnailUri,
-        resolved,
-      });
-
-      if (mounted) {
-        setDetailImageUri(resolved);
-      }
-    };
-
-    resolveDetailImage();
-
-    return () => {
-      mounted = false;
-    };
-  }, [trade]);
 
   const loadTrade = async () => {
     try {
