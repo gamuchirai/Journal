@@ -78,7 +78,7 @@ describe('imageUtils', () => {
 
     expect(mockImageManipulator.manipulateAsync).toHaveBeenCalledWith(
       'file:///tmp/source.jpg',
-      [{ resize: { width: 300, height: 300 } }],
+      [{ resize: { width: 200, height: 200 } }],
       { compress: 0.7, format: 'jpeg' }
     );
   });

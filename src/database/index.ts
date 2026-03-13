@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { openDatabaseAsync } from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Trade, UserPreferences, TradeOutcomes, BiasData, NarrativeData, EntryData } from '../types';
 import { FOREX_PAIRS, TIMEFRAMES, DEFAULT_CONTEXTS } from '../constants';
@@ -92,25 +93,8 @@ export const initializeDatabase = async () => {
   initializationPromise = (async () => {
     try {
       console.log('[DB INIT] Starting SQLite initialization...');
-      
-      console.log('[DB INIT] About to import expo-sqlite...');
-      const SQLiteModule = await import('expo-sqlite');
-      console.log('[DB INIT] expo-sqlite imported successfully');
-      console.log('[DB INIT] SQLiteModule keys:', Object.keys(SQLiteModule).join(', '));
 
-      const sqliteAny = SQLiteModule as any;
-      console.log('[DB INIT] Looking for openDatabaseAsync...');
-      const openDatabaseAsync = sqliteAny.openDatabaseAsync ?? sqliteAny.default?.openDatabaseAsync;
-      console.log('[DB INIT] openDatabaseAsync:', typeof openDatabaseAsync);
-
-      if (typeof openDatabaseAsync !== 'function') {
-        console.error('[DB INIT] openDatabaseAsync is not a function, typeof:', typeof openDatabaseAsync);
-        throw new Error('expo-sqlite does not expose openDatabaseAsync');
-      }
-
-      console.log('[DB INIT] Calling openDatabaseAsync("tradeflow.db")...');
       db = await openDatabaseAsync('tradeflow.db');
-      console.log('[DB INIT] Database connection returned:', typeof db);
 
       if (!db) {
         throw new Error('Failed to open database - returned null');

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ import {
   normalizeImageUri,
 } from '../utils/imageUtils';
 import { SectionTitle, ScreenLoadingState, SelectPickerModal } from '../components';
+import { calculateRiskRewardRatio } from '../utils/riskUtils';
 import * as db from '../database';
 import {
   MIN_BIAS_TIMEFRAME_INDEX,
@@ -110,7 +111,13 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     options: string[];
   } | null>(null);
 
-  const { control, handleSubmit, reset, setValue, watch } = useForm<FormData>({
+  // Refs for tracking newly picked images so they can be cleaned up if the user
+  // navigates away without saving.
+  const tradeSavedRef = useRef(false);
+  const newlyPickedRef = useRef(false);
+  const pendingImageRef = useRef<{ screenshot: string | null; thumbnail: string | null }>({ screenshot: null, thumbnail: null });
+
+  const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       market: '',
       // Bias defaults
@@ -270,6 +277,15 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
     }
   }, [entryTimeframe, entryTimeframeOptions, setValue]);
 
+  // Clean up newly picked images if the user navigates away without saving.
+  useEffect(() => {
+    return () => {
+      if (!tradeSavedRef.current && newlyPickedRef.current) {
+        deleteTradeImages(pendingImageRef.current.screenshot, pendingImageRef.current.thumbnail).catch(() => {});
+      }
+    };
+  }, []);
+
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -292,6 +308,8 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         await logImageUriDebug('CreateEdit.processed.thumbnailUri', normalizedThumb);
         setScreenshotUri(normalizedFull);
         setThumbnailUri(normalizedThumb);
+        newlyPickedRef.current = true;
+        pendingImageRef.current = { screenshot: normalizedFull, thumbnail: normalizedThumb };
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick image');
@@ -303,6 +321,8 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       await deleteTradeImages(screenshotUri, thumbnailUri);
       setScreenshotUri(null);
       setThumbnailUri(null);
+      newlyPickedRef.current = false;
+      pendingImageRef.current = { screenshot: null, thumbnail: null };
     }
   };
 
@@ -342,17 +362,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       }
 
       // Calculate Risk:Reward ratio
-      let calculatedRR = '';
-      if (data.stop && data.target) {
-        const stop = parseFloat(data.stop);
-        const target = parseFloat(data.target);
-        
-        // Simple R:R calculation based on difference
-        if (!isNaN(stop) && !isNaN(target) && stop !== target) {
-          // This is a simplified calculation - user should input proper values
-          calculatedRR = data.riskReward || '';
-        }
-      }
+      const calculatedRR = calculateRiskRewardRatio(data.stop || null, data.target || null) || data.riskReward || '';
       
       // Build structured bias
       const biasData: BiasData = {
@@ -421,6 +431,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
       await saveTrade(newTrade);
       console.log('saveTrade completed successfully');
       console.log('Navigating back...');
+      tradeSavedRef.current = true;
       navigation.goBack();
     } catch (error) {
       console.error('Error in onSubmit:', error);
@@ -450,9 +461,10 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
           <Controller
             control={control}
             name="market"
+            rules={{ required: 'Select a market before saving.' }}
             render={({ field: { value } }) => (
               <TouchableOpacity
-                style={styles.selectBox}
+                style={[styles.selectBox, errors.market && styles.selectBoxError]}
                 onPress={() =>
                   openSelect(
                     'market',
@@ -468,6 +480,7 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
               </TouchableOpacity>
             )}
           />
+          {errors.market && <Text style={styles.fieldError}>{errors.market.message}</Text>}
         </View>
 
 
@@ -1029,6 +1042,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  selectBoxError: {
+    borderColor: C.loss,
+    borderWidth: 1.5,
+  },
+  fieldError: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: C.loss,
+    marginTop: 4,
   },
   selectBoxText: {
     fontFamily: 'DMSans_400Regular',

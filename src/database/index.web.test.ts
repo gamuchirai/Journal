@@ -1,3 +1,10 @@
+// Mock expo-sqlite so the static import in database/index.ts does not attempt
+// to load native modules when running the web-mode tests in jsdom.
+jest.mock('expo-sqlite', () => ({
+  __esModule: true,
+  openDatabaseAsync: jest.fn(),
+}));
+
 import { Trade } from '../types';
 
 const makeTrade = (overrides: Partial<Trade> = {}): Trade => ({
@@ -57,7 +64,7 @@ describe('database web mode', () => {
     await db.createTrade(t2);
 
     const all = await db.getAllTrades();
-    expect(all.map((t) => t.id)).toEqual(['b', 'a']);
+    expect(all.map((t: Trade) => t.id)).toEqual(['b', 'a']);
 
     const one = await db.getTrade('a');
     expect(one?.market).toBe('EUR/USD');

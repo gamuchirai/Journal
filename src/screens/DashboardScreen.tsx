@@ -23,7 +23,6 @@ type Props = CompositeScreenProps<
 >;
 
 const DashboardScreen = ({ navigation }: Props) => {
-  console.log('[DashboardScreen] component mounted');
   const insets = useSafeAreaInsets();
   const { analytics, loading, reload } = useDashboardAnalytics();
 

@@ -4,6 +4,12 @@ import { registerRootComponent } from 'expo';
 import { Platform } from 'react-native';
 import App from './App';
 
+// In production builds, silence verbose debug logs to protect user privacy and reduce overhead.
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+}
+
 console.log('[INDEX] ════════════════════════════════════════════════════════');
 console.log('[INDEX] APPLICATION ENTRY POINT STARTING');
 console.log('[INDEX] Platform:', Platform.OS);
@@ -25,8 +31,8 @@ if (Platform.OS === 'web') {
   console.log('[INDEX] Registered native platform (no web listeners needed)');
 }
 
-// Global error handler for uncaught exceptions
-if (typeof global !== 'undefined') {
+// Global error handler for uncaught exceptions (development only)
+if (__DEV__ && typeof global !== 'undefined') {
   const originalError = console.error;
   console.error = (...args: any[]) => {
     console.log('[GLOBAL] console.error called:', args);

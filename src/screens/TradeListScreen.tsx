@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -24,27 +24,28 @@ type Props = CompositeScreenProps<
 >;
 
 const TradeListScreen = ({ navigation }: Props) => {
-  console.log('[TradeListScreen] component mounted');
   const { trades, loadTrades, loading } = useTradeStore();
   const [filter, setFilter] = useState<string | undefined>(undefined);
   const tradeImageUriMap = useTradeImageMap(trades);
   const insets = useSafeAreaInsets();
+  const isFirstMount = useRef(true);
 
+  // Fires when filter changes after initial mount; initial load is handled by the focus listener.
   useEffect(() => {
-    console.log('[TradeListScreen] useEffect 1 - filter changed:', filter);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
     loadTrades(filter as any);
   }, [filter]);
 
+  // Reload on screen focus (covers initial mount + navigating back from trade detail).
   useEffect(() => {
-    console.log('[TradeListScreen] useEffect 2 - focus listener setup');
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('[TradeListScreen] focus event fired');
       loadTrades(filter as any);
     });
     return unsubscribe;
   }, [navigation, filter]);
-
-  console.log('[TradeListScreen] render - trades:', trades.length, 'loading:', loading, 'filter:', filter);
 
   const handleSelectTrade = (trade: Trade) => {
     console.log('[TradeListScreen] Navigating to TradeDetail with id:', trade.id);

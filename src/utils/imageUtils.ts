@@ -2,8 +2,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // Use a simple string path for trade images
-const THUMBNAIL_WIDTH = 300;
-const THUMBNAIL_HEIGHT = 300;
+const THUMBNAIL_WIDTH = 200;
+const THUMBNAIL_HEIGHT = 200;
 
 export const normalizeImageUri = (uri: string | null | undefined): string | null => {
   if (!uri) return null;
