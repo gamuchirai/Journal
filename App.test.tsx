@@ -21,6 +21,10 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+jest.mock('react-native-gesture-handler', () => ({
+  GestureHandlerRootView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 import { initializeDatabase } from './src/database';
 import App from './App';
 
