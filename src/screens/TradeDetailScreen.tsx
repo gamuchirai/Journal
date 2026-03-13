@@ -115,7 +115,12 @@ const TradeDetailScreen = ({ navigation, route }: Props) => {
           <View style={[styles.badge, { backgroundColor: C.tealDim }]}>
             <Text style={styles.badgeText}>RR {rrRatio || '-'}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: C.surface }]}>
+          <View style={[styles.badge, {
+            backgroundColor:
+              trade.status === 'closed' ? C.gain :
+              trade.status === 'reviewed' ? C.teal :
+              C.amber,
+          }]}>
             <Text style={styles.badgeText}>{trade.status}</Text>
           </View>
         </View>

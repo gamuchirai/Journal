@@ -377,15 +377,14 @@ const CreateEditTradeScreen = ({ navigation, route }: Props) => {
         playedOut: data.entryPlayedOut,
       };
 
-      const currentStatus = trade?.status || 'draft';
-      const hasPlayedOutDecision =
-        data.biasPlayedOut !== null ||
-        data.narrativePlayedOut !== null ||
-        data.contextHeld !== null ||
-        data.entryPlayedOut !== null ||
+      const currentStatus = trade?.status || 'active';
+      const allMetricsFilled =
+        data.biasPlayedOut !== null &&
+        data.narrativePlayedOut !== null &&
+        data.contextHeld !== null &&
+        data.entryPlayedOut !== null &&
         data.riskManaged !== null;
-      const nextStatus =
-        currentStatus === 'draft' && hasPlayedOutDecision ? 'closed' : currentStatus;
+      const nextStatus = allMetricsFilled ? 'closed' : 'active';
       
       const newTrade: Trade = {
         id: trade?.id || `trade_${Date.now()}`,

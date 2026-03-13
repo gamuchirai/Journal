@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as db from '../database';
+import { getCombinationInsights, DashboardInsight } from '../utils/insightUtils';
 
 interface DashboardAnalytics {
   totalTrades: number;
@@ -11,6 +12,7 @@ interface DashboardAnalytics {
     entry: number;
     risk: number;
   };
+  patternInsights: DashboardInsight[];
 }
 
 interface UseDashboardAnalyticsResult {
@@ -38,6 +40,7 @@ export const useDashboardAnalytics = (): UseDashboardAnalyticsResult => {
         totalTrades: trades.length,
         winRate: Math.round(rate),
         blockRates,
+        patternInsights: getCombinationInsights(trades),
       });
     } catch (e) {
       console.error('[useDashboardAnalytics] Error in loadData:', e);

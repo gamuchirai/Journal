@@ -114,4 +114,66 @@ describe('DashboardScreen', () => {
       ).toBeTruthy();
     });
   });
+
+  it('shows combination pattern insight for system failure trades', async () => {
+    const systemFailureTrade = {
+      id: 't1',
+      status: 'reviewed',
+      outcomes: {
+        biasPlayedOut: false,
+        narrativePlayedOut: false,
+        contextHeld: false,
+        entryExecuted: false,
+        riskManaged: false,
+      },
+    };
+    mockDb.getAllTrades.mockResolvedValue([systemFailureTrade] as any);
+    mockDb.getWinRate.mockResolvedValue(0 as any);
+    mockDb.getBlockSuccessRates.mockResolvedValue({
+      bias: 10, narrative: 10, context: 10, entry: 10, risk: 10,
+    } as any);
+
+    const screen = render(
+      <DashboardScreen navigation={makeNavigation() as any} route={{} as any} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          '100% of trades — All blocks failed. Step back to Monthly/Weekly. You are likely lost in lower-timeframe noise.'
+        )
+      ).toBeTruthy();
+    });
+  });
+
+  it('shows force-fed pattern insight when entries are taken without context', async () => {
+    const forceFedTrade = {
+      id: 't1',
+      status: 'reviewed',
+      outcomes: {
+        biasPlayedOut: true,
+        narrativePlayedOut: true,
+        contextHeld: false,
+        entryExecuted: true,
+        riskManaged: true,
+      },
+    };
+    mockDb.getAllTrades.mockResolvedValue([forceFedTrade] as any);
+    mockDb.getWinRate.mockResolvedValue(0 as any);
+    mockDb.getBlockSuccessRates.mockResolvedValue({
+      bias: 100, narrative: 100, context: 0, entry: 100, risk: 100,
+    } as any);
+
+    const screen = render(
+      <DashboardScreen navigation={makeNavigation() as any} route={{} as any} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          '100% of trades — Entries taken without the context area being reached or respected. Discipline check: wait for the boundary.'
+        )
+      ).toBeTruthy();
+    });
+  });
 });

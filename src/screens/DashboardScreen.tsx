@@ -63,6 +63,7 @@ const DashboardScreen = ({ navigation }: Props) => {
 
   const insights = analytics
     ? [
+        ...analytics.patternInsights,
         {
           icon: '◈',
           text:
@@ -71,10 +72,10 @@ const DashboardScreen = ({ navigation }: Props) => {
               : analytics.winRate >= 50
               ? 'Win rate above 50%. Focus on consistency.'
               : 'Work on identifying what is holding back your win rate.',
-          type: 'positive',
+          type: 'positive' as const,
         },
-        { icon: '▲', text: getStrongestBlockInsight(analytics.blockRates), type: 'positive' },
-        { icon: '◇', text: getWeakestBlockInsight(analytics.blockRates), type: 'neutral' },
+        { icon: '▲', text: getStrongestBlockInsight(analytics.blockRates), type: 'positive' as const },
+        { icon: '◇', text: getWeakestBlockInsight(analytics.blockRates), type: 'neutral' as const },
       ]
     : [];
 
@@ -158,7 +159,13 @@ const DashboardScreen = ({ navigation }: Props) => {
               <Text
                 style={[
                   ls.insightIcon,
-                  insight.type === 'positive' ? ls.iconPositive : ls.iconNeutral,
+                  insight.type === 'positive'
+                    ? ls.iconPositive
+                    : insight.type === 'warning'
+                    ? ls.iconWarning
+                    : insight.type === 'negative'
+                    ? ls.iconNegative
+                    : ls.iconNeutral,
                 ]}
               >
                 {insight.icon}
@@ -269,6 +276,8 @@ const ls = StyleSheet.create({
   insightIcon: { fontSize: 13 },
   iconPositive: { color: C.teal },
   iconNeutral: { color: C.amber },
+  iconWarning: { color: C.amber },
+  iconNegative: { color: C.loss },
   insightText: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 12,
