@@ -29,8 +29,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "ba9c74af-30dd-450c-8401-1b74d8f14044"
+        "projectId": "bd259d3f-61e0-4bcf-a10b-5cd15969202e"
       }
-    }
+    },
+    "owner": "gamuchiraik"
   }
 }
